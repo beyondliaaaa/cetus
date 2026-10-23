@@ -49,8 +49,16 @@ jobs:
         with:
           tool: wasm-bindgen-cli@0.2.129
 
-      - name: Install binaryen (wasm-opt)
-        run: sudo apt-get update && sudo apt-get install -y binaryen
+      # Pin binaryen to the version in ADR-0001: wasm-opt's table handling
+      # changed between releases and an older binaryen breaks the
+      # wasm-bindgen externref table (Table.grow fails at load time).
+      - name: Install binaryen (wasm-opt 123)
+        run: |
+          curl -sSL -o /tmp/binaryen.tar.gz \
+            https://github.com/WebAssembly/binaryen/releases/download/version_123/binaryen-version_123-x86_64-linux.tar.gz
+          tar xzf /tmp/binaryen.tar.gz -C /tmp
+          sudo cp /tmp/binaryen-version_123/bin/wasm-opt /usr/local/bin/
+          wasm-opt --version
 
       - name: Compare native and wasm digests
         run: ./scripts/check-cross-target.sh
@@ -76,8 +84,16 @@ jobs:
         with:
           tool: wasm-bindgen-cli@0.2.129
 
-      - name: Install binaryen (wasm-opt)
-        run: sudo apt-get update && sudo apt-get install -y binaryen
+      # Pin binaryen to the version in ADR-0001: wasm-opt's table handling
+      # changed between releases and an older binaryen breaks the
+      # wasm-bindgen externref table (Table.grow fails at load time).
+      - name: Install binaryen (wasm-opt 123)
+        run: |
+          curl -sSL -o /tmp/binaryen.tar.gz \
+            https://github.com/WebAssembly/binaryen/releases/download/version_123/binaryen-version_123-x86_64-linux.tar.gz
+          tar xzf /tmp/binaryen.tar.gz -C /tmp
+          sudo cp /tmp/binaryen-version_123/bin/wasm-opt /usr/local/bin/
+          wasm-opt --version
 
       - name: Install npm dependencies
         run: npm ci

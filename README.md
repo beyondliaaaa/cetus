@@ -52,6 +52,11 @@
 - `wasm-bindgen` CLI 0.2.129（必须与 crate 版本一致）
 - `wasm-opt`（binaryen）
 
+npm 默认走 npmmirror 镜像（`.npmrc`，方便国内的合作专家）。在其他地区，可以
+`export npm_config_registry=https://registry.npmjs.org/` 改用官方源。`package-lock.json`
+始终记录官方源地址；如果 `npm install` 把镜像地址写进了 lockfile，提交前运行
+`npm run lockfile:fix`（CI 会检查）。
+
 ```bash
 # 1. 构建 wasm 包并启动开发服务器
 npm install
@@ -76,14 +81,17 @@ cargo test --workspace
 ## 仓库结构
 
 ```
-crates/            Rust 引擎（内核、范式、教学层、世界层、验收、CLI、WASM 绑定）
-content/           内容（M1 阶段暂驻引擎仓库；M5 拆分到 cetus-content）
+crates/            Rust 引擎（M1 已实现：math、units、expr、model、compile、kernel、sd、
+                   wasm、cli、testkit；其余为后续里程碑的占位 crate）
+content/           内容，CC BY-SA 4.0（M5 前暂驻引擎仓库，之后拆分到 cetus-content）
 apps/web/          Vite + React 前端
-packages/          TypeScript 应用逻辑（sim-client、lesson-runtime、mastery、py-runner、ui-kit）
-docs/              实现指南、ADR、诊断码说明、作者指南、schema
+packages/          TypeScript 应用逻辑（目前只有 sim-client；lesson-runtime、mastery、
+                   py-runner、ui-kit 随 M2–M8 加入）
+docs/              实现指南、项目状态、ADR、诊断码说明
 skills/            给 LLM 代理的技能包
 assets/            美术与音频素材（每个文件都要在 LICENSES.yaml 登记）
 scripts/           构建与检查脚本
+tools/             CI 用的辅助 crate（clippy 规则探针）
 ```
 
 ## 设计文档
@@ -99,7 +107,7 @@ scripts/           构建与检查脚本
 ## 许可证
 
 - 代码：`MIT OR Apache-2.0`
-- 内容（未来的 `cetus-content` 仓库）：`CC BY-SA 4.0`
+- 内容（`content/`，M5 后为独立的 `cetus-content` 仓库）：`CC BY-SA 4.0`，见 [`content/LICENSE.md`](content/LICENSE.md)
 - 素材：逐个记录在 [`assets/LICENSES.yaml`](assets/LICENSES.yaml)
 
 见 [ADR-0003](docs/adr/0003-licenses.md)。

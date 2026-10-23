@@ -17,7 +17,7 @@
 | 部分 | 许可证 |
 |---|---|
 | 引擎代码（本仓库 `crates/`、`packages/`、`apps/`、`scripts/`） | `MIT OR Apache-2.0` 双许可 |
-| 内容（未来的 `cetus-content` 仓库：模块、课程、文本、世界定义、数据集） | `CC BY-SA 4.0` |
+| 内容（模块、课程、文本、世界定义、数据集；M5 前在本仓库 `content/`，之后在 `cetus-content` 仓库） | `CC BY-SA 4.0` |
 | 美术与音频素材 | 逐个记录在 `assets/LICENSES.yaml`，优先 CC0 / CC BY / CC BY-SA（P14） |
 
 ## 理由
@@ -34,6 +34,8 @@
 - 每个源文件不需要单独写 license header；仓库根部的 `LICENSE-MIT`、
   `LICENSE-APACHE` 与 `README.md` 的说明即为全部。
 - 内容仓库需要单独的 `LICENSE`（CC BY-SA 4.0 全文）与贡献者指南。
+- 在拆分之前，`content/LICENSE.md` 声明该目录采用 CC BY-SA 4.0（与仓库其余部分的
+  `MIT OR Apache-2.0` 不同），拆分时随内容迁移。
 - `assets/LICENSES.yaml` 的 CI 检查在 M0 建立骨架（当前为空列表），从 M4 起强制。
 - 如果将来引入第三方数据集（§6.3），数据集许可证必须与 CC BY-SA 4.0 兼容，并在
   `datasets/<id>/source.yaml` 中记录；不兼容的数据集只能用于「引用数值」而不能

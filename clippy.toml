@@ -1,16 +1,30 @@
 # Determinism policy P2 / §5.12 / skills/cetus-determinism §4.
-# Path syntax is verified by crates/cetus-testkit/tests/clippy_rules.rs guidance
-# in docs/adr/0001-tech-stack-and-versions.md.
+#
+# Every `std` / `core` path below is exercised by tools/clippy-probe, and
+# scripts/check-clippy-rules.sh (run in CI) fails if any of them stops firing —
+# for example after a clippy upgrade changes path resolution. Adding an entry
+# here without a matching use in the probe also fails that check.
+#
+# Third-party paths (`rand`, `getrandom`) carry `allow-invalid = true`: the
+# workspace builds `rand` without its OS-randomness features, so those items do
+# not exist today, and clippy must not complain about that. If a crate ever
+# turns the features back on (Cargo unifies features across the workspace),
+# these rules start firing. See ADR-0001.
 
 disallowed-types = [
   { path = "std::collections::HashMap", reason = "nondeterministic iteration; use IndexMap or BTreeMap (P2, D1)" },
   { path = "std::collections::HashSet", reason = "nondeterministic iteration; use IndexSet or BTreeSet (P2, D1)" },
+  { path = "rand::rngs::ThreadRng", reason = "OS-seeded; use derived ChaCha8 substreams (D5, D7)", allow-invalid = true },
+  { path = "rand::rngs::OsRng", reason = "OS randomness; use derived ChaCha8 substreams (D5, D7)", allow-invalid = true },
+  { path = "rand::rngs::SysRng", reason = "OS randomness; use derived ChaCha8 substreams (D5, D7)", allow-invalid = true },
 ]
 
 disallowed-methods = [
+  # D2: transcendental functions go through cetus_math (libm).
   { path = "f64::sin", reason = "use cetus_math (D2)" },
   { path = "f64::cos", reason = "use cetus_math (D2)" },
   { path = "f64::tan", reason = "use cetus_math (D2)" },
+  { path = "f64::sin_cos", reason = "use cetus_math (D2)" },
   { path = "f64::asin", reason = "use cetus_math (D2)" },
   { path = "f64::acos", reason = "use cetus_math (D2)" },
   { path = "f64::atan", reason = "use cetus_math (D2)" },
@@ -18,11 +32,15 @@ disallowed-methods = [
   { path = "f64::sinh", reason = "use cetus_math (D2)" },
   { path = "f64::cosh", reason = "use cetus_math (D2)" },
   { path = "f64::tanh", reason = "use cetus_math (D2)" },
+  { path = "f64::asinh", reason = "use cetus_math (D2)" },
+  { path = "f64::acosh", reason = "use cetus_math (D2)" },
+  { path = "f64::atanh", reason = "use cetus_math (D2)" },
   { path = "f64::exp", reason = "use cetus_math (D2)" },
   { path = "f64::exp2", reason = "use cetus_math (D2)" },
   { path = "f64::exp_m1", reason = "use cetus_math (D2)" },
   { path = "f64::ln", reason = "use cetus_math (D2)" },
   { path = "f64::ln_1p", reason = "use cetus_math (D2)" },
+  { path = "f64::log", reason = "use cetus_math (D2)" },
   { path = "f64::log10", reason = "use cetus_math (D2)" },
   { path = "f64::log2", reason = "use cetus_math (D2)" },
   { path = "f64::powf", reason = "use cetus_math (D2)" },
@@ -30,7 +48,53 @@ disallowed-methods = [
   { path = "f64::sqrt", reason = "use cetus_math (D2)" },
   { path = "f64::cbrt", reason = "use cetus_math (D2)" },
   { path = "f64::hypot", reason = "use cetus_math (D2)" },
+  # The kernel computes in f64 only; f32 math is just as platform-dependent.
+  { path = "f32::sin", reason = "kernel math is f64 via cetus_math (D2)" },
+  { path = "f32::cos", reason = "kernel math is f64 via cetus_math (D2)" },
+  { path = "f32::tan", reason = "kernel math is f64 via cetus_math (D2)" },
+  { path = "f32::sin_cos", reason = "kernel math is f64 via cetus_math (D2)" },
+  { path = "f32::asin", reason = "kernel math is f64 via cetus_math (D2)" },
+  { path = "f32::acos", reason = "kernel math is f64 via cetus_math (D2)" },
+  { path = "f32::atan", reason = "kernel math is f64 via cetus_math (D2)" },
+  { path = "f32::atan2", reason = "kernel math is f64 via cetus_math (D2)" },
+  { path = "f32::sinh", reason = "kernel math is f64 via cetus_math (D2)" },
+  { path = "f32::cosh", reason = "kernel math is f64 via cetus_math (D2)" },
+  { path = "f32::tanh", reason = "kernel math is f64 via cetus_math (D2)" },
+  { path = "f32::asinh", reason = "kernel math is f64 via cetus_math (D2)" },
+  { path = "f32::acosh", reason = "kernel math is f64 via cetus_math (D2)" },
+  { path = "f32::atanh", reason = "kernel math is f64 via cetus_math (D2)" },
+  { path = "f32::exp", reason = "kernel math is f64 via cetus_math (D2)" },
+  { path = "f32::exp2", reason = "kernel math is f64 via cetus_math (D2)" },
+  { path = "f32::exp_m1", reason = "kernel math is f64 via cetus_math (D2)" },
+  { path = "f32::ln", reason = "kernel math is f64 via cetus_math (D2)" },
+  { path = "f32::ln_1p", reason = "kernel math is f64 via cetus_math (D2)" },
+  { path = "f32::log", reason = "kernel math is f64 via cetus_math (D2)" },
+  { path = "f32::log10", reason = "kernel math is f64 via cetus_math (D2)" },
+  { path = "f32::log2", reason = "kernel math is f64 via cetus_math (D2)" },
+  { path = "f32::powf", reason = "kernel math is f64 via cetus_math (D2)" },
+  { path = "f32::powi", reason = "kernel math is f64 via cetus_math (D2)" },
+  { path = "f32::sqrt", reason = "kernel math is f64 via cetus_math (D2)" },
+  { path = "f32::cbrt", reason = "kernel math is f64 via cetus_math (D2)" },
+  { path = "f32::hypot", reason = "kernel math is f64 via cetus_math (D2)" },
+  # D3: no fused multiply-add.
   { path = "f64::mul_add", reason = "fused multiply-add changes rounding (D3)" },
+  { path = "f32::mul_add", reason = "fused multiply-add changes rounding (D3)" },
+  # D5: no wall clock in the kernel.
   { path = "std::time::SystemTime::now", reason = "no wall clock in the kernel (D5)" },
   { path = "std::time::Instant::now", reason = "no wall clock in the kernel (D5)" },
+  # D5 / D7: no OS randomness; every stream is a derived ChaCha8 substream.
+  { path = "rand::rng", reason = "OS-seeded; use derived ChaCha8 substreams (D5, D7)", allow-invalid = true },
+  { path = "rand::thread_rng", reason = "OS-seeded; use derived ChaCha8 substreams (D5, D7)", allow-invalid = true },
+  { path = "rand::random", reason = "OS-seeded; use derived ChaCha8 substreams (D5, D7)", allow-invalid = true },
+  { path = "rand::random_iter", reason = "OS-seeded; use derived ChaCha8 substreams (D5, D7)", allow-invalid = true },
+  { path = "rand::random_range", reason = "OS-seeded; use derived ChaCha8 substreams (D5, D7)", allow-invalid = true },
+  { path = "rand::random_bool", reason = "OS-seeded; use derived ChaCha8 substreams (D5, D7)", allow-invalid = true },
+  { path = "rand::random_ratio", reason = "OS-seeded; use derived ChaCha8 substreams (D5, D7)", allow-invalid = true },
+  { path = "rand::fill", reason = "OS-seeded; use derived ChaCha8 substreams (D5, D7)", allow-invalid = true },
+  { path = "rand::make_rng", reason = "OS-seeded; use derived ChaCha8 substreams (D5, D7)", allow-invalid = true },
+  { path = "rand::SeedableRng::from_os_rng", reason = "OS-seeded; seed from the sim seed (D5, D7)", allow-invalid = true },
+  { path = "rand::SeedableRng::from_entropy", reason = "OS-seeded; seed from the sim seed (D5, D7)", allow-invalid = true },
+  { path = "rand_core::SeedableRng::from_os_rng", reason = "OS-seeded; seed from the sim seed (D5, D7)", allow-invalid = true },
+  { path = "getrandom::fill", reason = "OS randomness (D5)", allow-invalid = true },
+  { path = "getrandom::getrandom", reason = "OS randomness (D5)", allow-invalid = true },
 ]

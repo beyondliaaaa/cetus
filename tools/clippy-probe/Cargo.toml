@@ -1,0 +1,14 @@
+# Deliberately violates every std rule in the root clippy.toml.
+#
+# Not a workspace member and never built for real: scripts/check-clippy-rules.sh
+# runs clippy on it and asserts that every rule fires. It has no dependencies so
+# the check works offline and stays fast.
+
+[package]
+name = "cetus-clippy-probe"
+version = "0.0.0"
+edition = "2024"
+publish = false
+
+# Standalone: keep it out of the root workspace.
+[workspace]

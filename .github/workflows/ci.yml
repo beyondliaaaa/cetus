@@ -23,10 +23,17 @@ jobs:
       - uses: Swatinem/rust-cache@v2
 
       - name: rustfmt
-        run: cargo fmt --all -- --check
+        run: |
+          cargo fmt --all -- --check
+          cargo fmt --manifest-path tools/clippy-probe/Cargo.toml -- --check
 
       - name: clippy
         run: cargo clippy --workspace --all-targets -- -D warnings
+
+      # The determinism rules must actually fire, not just be configured
+      # (§12 M0, ADR-0001): clippy on a probe crate that breaks every rule.
+      - name: clippy determinism rules fire
+        run: ./scripts/check-clippy-rules.sh
 
       - name: test
         run: cargo test --workspace

@@ -17,6 +17,21 @@ ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 cd "$ROOT"
 
 CARGO="${CARGO:-cargo}"
+PYTHON="${PYTHON:-python3}"
+
+# The rule list is read with tomllib, which is Python 3.11+. macOS ships 3.9 as
+# /usr/bin/python3, so say so plainly instead of failing with an ImportError.
+if ! "$PYTHON" -c 'import sys; sys.exit(0 if sys.version_info >= (3, 11) else 1)' 2>/dev/null; then
+  if command -v "$PYTHON" >/dev/null 2>&1; then
+    found="$("$PYTHON" --version 2>&1)"
+  else
+    found="no '$PYTHON' on PATH"
+  fi
+  echo "error: scripts/check-clippy-rules.sh needs Python 3.11+ (for tomllib); found: $found" >&2
+  echo "       install a newer Python, or point PYTHON at one: PYTHON=python3.12 $0" >&2
+  exit 2
+fi
+
 OUT="$(mktemp)"
 trap 'rm -f "$OUT"' EXIT
 
@@ -28,7 +43,7 @@ env -u RUSTFLAGS \
   "$CARGO" clippy --quiet --manifest-path tools/clippy-probe/Cargo.toml \
   --message-format=json >"$OUT"
 
-python3 - "$ROOT/clippy.toml" "$OUT" <<'PY'
+"$PYTHON" - "$ROOT/clippy.toml" "$OUT" <<'PY'
 import json, re, sys, tomllib
 
 config_path, output_path = sys.argv[1], sys.argv[2]

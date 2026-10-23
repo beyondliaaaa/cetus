@@ -12,6 +12,8 @@
     "build": "npm run build:wasm && npm run build --workspace @cetus/web",
     "build:wasm": "scripts/build-wasm.sh web --release --out-dir apps/web/src/wasm/generated",
     "test": "npm run test --workspaces --if-present",
-    "typecheck": "npm run typecheck --workspaces --if-present"
+    "typecheck": "npm run typecheck --workspaces --if-present",
+    "lockfile:check": "node scripts/npm-lockfile-registry.mjs --check",
+    "lockfile:fix": "node scripts/npm-lockfile-registry.mjs --fix"
   }
 }

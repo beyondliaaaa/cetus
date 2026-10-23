@@ -39,8 +39,13 @@
   教学层、验收框架按 §12 的顺序在 M1.5–M3 补齐。
 - M1 的已知限制：`cetus-expr` 的 `delay1`/`delay3`/`smooth` 已能解析与类型检查，
   但 SD 子系统尚未为它们分配状态槽；`lookup` 已接入；`Complex` 等类型按 E1901 拒绝。
+- **确定性防线已补强**：黄金哈希（`crates/cetus-testkit/golden/hashes.txt`，native =
+  wasm = 黄金值）、clippy 规则探针（`tools/clippy-probe` + `scripts/check-clippy-rules.sh`）、
+  发布产物无 `getrandom`（`scripts/check-no-os-rng.sh`）、wasm-opt 版本门
+  （`scripts/build-wasm.sh`）。详见 ADR-0001。
 - **内容轨可以并行开始**（§12.0），使用 `skills/cetus-knowledge-network`。
-- **开工前需要人类完成的事**：创建引擎仓库与内容仓库；把本文档放进 `docs/IMPLEMENTATION_GUIDE.md`；把 `skills/` 下已起草的技能放进仓库（§11.4 列出了哪些已有）。
+- **开工前需要人类完成的事**：引擎仓库已创建（`https://github.com/beyondliaaaa/cetus`），
+  本文档与 `skills/` 已入库；内容仓库在 M5 拆分时创建。
 - **在对应里程碑开始前必须由人类决定的问题**：M3 结束前 Q19；M4 开始前 Q11（最小设定）、Q23、Q31，以及鲸鱼娘形象的授权或原创方案（Q10）。代理遇到这些问题时停下来问，不要自行决定（§0.1）。
 
 ### 0.4 名词速查
@@ -1964,7 +1969,7 @@ acts:
 
 **技能的版本约定**：每个 `SKILL.md` 开头写明“skill 版本”和“对应指南版本”。指南更新后，受影响的技能必须同步，或在 PR 中说明为什么不需要同步。CI 可以检查：技能声明的指南版本低于当前指南的主版本号时给出警告。
 
-**已起草（2026-10-23）**：`cetus-knowledge-network` v0.2、`motivation-design-review` v0.1、`research-misconceptions` v0.1、`cetus-determinism` v0.1。其余按里程碑起草：`design-inquiry-lesson`、`write-dialog`、`design-assessment` 在 M3–M4 前；其他在 M5 及以后。
+**已起草（2026-10-23）**：`cetus-knowledge-network` v0.2、`motivation-design-review` v0.1、`research-misconceptions` v0.1、`cetus-determinism` v0.2。其余按里程碑起草：`design-inquiry-lesson`、`write-dialog`、`design-assessment` 在 M3–M4 前；其他在 M5 及以后。
 
 ---
 

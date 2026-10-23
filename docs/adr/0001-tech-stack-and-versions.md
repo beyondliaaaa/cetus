@@ -51,6 +51,7 @@ M0 需要把技术栈固定下来，让后续所有 crate、前端、CI 和验�
 | indexmap | `2.14.2` | `Cargo.lock` |
 | proptest | `1.12.0` | `Cargo.lock` |
 | rand / rand_chacha | `0.10.3` / `0.10.0`（`rand` 关闭默认特性，只开 `std`） | `Cargo.lock` |
+| getrandom | `0.4.3`，只允许出现在测试依赖；`cetus-wasm` / `cetus-cli` 的产物不得包含 | `scripts/check-no-os-rng.sh` |
 | postcard | `1.1.3` | `Cargo.lock` |
 | lz4_flex | `0.14.0` | `Cargo.lock` |
 | thiserror | `2.0.21` | `Cargo.lock` |

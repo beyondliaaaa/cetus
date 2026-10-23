@@ -5,7 +5,8 @@ description: Rules, checks and test recipes for keeping the Cetus (鲸鱼娘历�
 
 # 确定性（鲸鱼娘历险记 / Cetus）
 
-> **skill 版本**：v0.1（2026-10-23）· **对应指南版本**：v0.5.2
+> **skill 版本**：v0.2（2026-10-23）· **对应指南版本**：v0.5.2
+> v0.2 变更：§4 补充当前 `clippy.toml` 的实际规模与持续验证方式（`tools/clippy-probe`、`scripts/check-clippy-rules.sh`、`scripts/check-no-os-rng.sh`）。
 > 指南版本高于上面的数字时，先读指南 §5.5、§5.9、§5.11、§5.12、§5.7.5、§7.12 的最新版本；两者冲突时以指南为准，并在 PR 描述中指出。
 
 ## 0. 什么时候用
@@ -217,7 +218,11 @@ disallowed-methods = [
 ]
 ```
 
-完整的超越函数列表（`asin`、`acos`、`atan`、`sinh`、`cosh`、`tanh`、`exp2`、`exp_m1`、`ln_1p`、`cbrt`、`hypot` 等）在 M0 中补齐。
+完整的超越函数列表（`asin`、`acos`、`atan`、`sinh`、`cosh`、`tanh`、`exp2`、
+`exp_m1`、`ln_1p`、`cbrt`、`hypot` 等）已在 M0 补齐。当前实际清单见仓库根
+`clippy.toml`：77 条中 60 条 `std` 规则由 `tools/clippy-probe` +
+`scripts/check-clippy-rules.sh` 持续验证；`rand` / `getrandom` 的 17 条带
+`allow-invalid = true`，其依赖层面的防线是 `scripts/check-no-os-rng.sh`。
 
 ## 5. PR 检查清单
 

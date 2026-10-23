@@ -15,10 +15,11 @@
 
 **M0 — 基础设施（完成）**
 
-- Cargo workspace、锁定工具链、确定性 clippy 规则（已实测生效）；
+- Cargo workspace、锁定工具链、确定性 clippy 规则（由 `tools/clippy-probe` 持续验证）；
 - WASM 构建管线（`wasm-bindgen` + `wasm-opt`，版本校验）；
 - Vite + React + TypeScript 前端骨架，WASM 运行在 Web Worker 中（Comlink）；
-- CI：fmt、clippy、test、跨目标确定性、web 构建、素材许可证检查。
+- CI：fmt、clippy、clippy 规则探针、测试、跨目标确定性（native = wasm = 黄金值）、
+  发布产物无 OS 随机源、web 构建与测试、素材许可证检查。
 
 **M1 — 内核 v0（完成）**
 
@@ -31,14 +32,15 @@
 - `cetus-model`：`cetus.model/0.1` 的 SD 子集，严格拒绝未知字段。
 - `cetus-compile`：名称/量纲/结构检查、代数环检测、流量量纲检查、拓扑排序、
   内容哈希；诊断码带路径与源码位置。
-- `cetus-kernel`：状态布局、宏步推进、探针、协变不变量、边界钳制事件、
+- `cetus-kernel`：状态布局、宏步推进、探针、不变量检查、边界钳制事件、
   具名随机子流、快照与状态哈希。
 - `cetus-sd`：Euler 与 RK4 积分器；`dopri5`/`ros2` 尚未实现（M1.5/M6）。
 - `cetus-cli`：`hello`、`check`、`run`、`sweep`、`explain`，全部支持 `--json`。
 - **8 个样板模型**（`content/modules/`）：指数衰减、logistic 种群、SIR、
   捕食者–猎物、库存–订货延迟、RC 充放电、太阳能板–蓄电池、logistic 映射。
   有解析解的模型 nrmse 在 1e-10 量级（要求 < 1e-4）。
-- **跨目标确定性**：8 个模型在 native 与 wasm 下的状态哈希完全一致。
+- **跨目标确定性**：8 个模型的 native、wasm 状态哈希与
+  [`golden/hashes.txt`](crates/cetus-testkit/golden/hashes.txt) 三者一致。
 
 下一个里程碑是 **M2 — 网页实验台**（在浏览器中加载模型、调参、运行、看图、
 编辑方程）。里程碑与退出标准见指南 §12。
@@ -50,7 +52,7 @@
 - Rust（`rust-toolchain.toml` 会固定版本）
 - Node.js 22+
 - `wasm-bindgen` CLI 0.2.129（必须与 crate 版本一致）
-- `wasm-opt`（binaryen）
+- `wasm-opt`（binaryen `version_123`；`scripts/build-wasm.sh` 会校验版本，不符即失败）
 
 npm 默认走 npmmirror 镜像（`.npmrc`，方便国内的合作专家）。在其他地区，可以
 `export npm_config_registry=https://registry.npmjs.org/` 改用官方源。`package-lock.json`
@@ -59,7 +61,7 @@ npm 默认走 npmmirror 镜像（`.npmrc`，方便国内的合作专家）。在
 
 ```bash
 # 1. 构建 wasm 包并启动开发服务器
-npm install
+npm ci
 npm run dev
 
 # 2. 只跑引擎
@@ -69,10 +71,17 @@ cargo run -p cetus-cli -- run content/modules/energy/solar-battery/module.yaml \
     --until 72h --probe charge_pct --out /tmp/solar.csv
 cargo run -p cetus-cli -- sweep content/modules/energy/solar-battery/module.yaml \
     --space "area=6..24:4,load=400..1600:3" --probe charge_pct --until 72h
-cargo test --workspace
 
-# 3. 跨平台确定性检查（native vs wasm，覆盖全部样板模型）
-./scripts/check-cross-target.sh
+# 3. 完整检查
+cargo fmt --all -- --check
+cargo clippy --workspace --all-targets -- -D warnings
+cargo test --workspace
+./scripts/check-clippy-rules.sh    # 60 条 std 确定性规则确实命中
+./scripts/check-no-os-rng.sh       # 发布产物（cetus-wasm / cetus-cli）不含 getrandom
+./scripts/check-cross-target.sh    # native = wasm = golden/hashes.txt
+npm run lockfile:check
+npm run build:wasm
+npm run typecheck && npm test && npm run build --workspace @cetus/web
 ```
 
 如果 `wasm-bindgen` 不在 PATH 中，`scripts/build-wasm.sh` 会直接报错并退出——这是
@@ -98,6 +107,8 @@ tools/             CI 用的辅助 crate（clippy 规则探针）
 
 - 实现指南：[`docs/IMPLEMENTATION_GUIDE.md`](docs/IMPLEMENTATION_GUIDE.md)（**所有工作的
   最高依据**；§2 的硬约束优先级高于其他任何部分）
+- 项目状态：[`docs/STATUS.md`](docs/STATUS.md)
+- 诊断码索引：[`docs/errors/`](docs/errors/)
 - 架构决策：[`docs/adr/`](docs/adr/)
 - 确定性与内核规则：[`skills/cetus-determinism/SKILL.md`](skills/cetus-determinism/SKILL.md)
 - 科技网络调研：[`skills/cetus-knowledge-network/SKILL.md`](skills/cetus-knowledge-network/SKILL.md)

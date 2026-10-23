@@ -1,6 +1,6 @@
 # ADR-0004：核心抽象 K1–K14
 
-- 状态：已接受（2026-10-23，M1 定稿）
+- 状态：已接受（2026-10-23，接口设计定稿；实现状态见文末「实现状态」）
 - 相关：§5.2、§5.5、§5.6.3、§5.8、§5.9、§5.11–§5.13、P13
 - 取代：无
 
@@ -206,28 +206,36 @@ pub enum ViewKind {
 - M1 实现 `Dim` 的自定义量纲扩展与角度标签；对数单位在 M6 引入（需要 `log`
   单位变换的完整测试）。
 
-## M1 的实现范围
+## 实现状态（2026-10-23）
 
-| 抽象 | M1 状态 |
-|---|---|
-| K1 | 标量类完整；其余分支可解析、可类型推导、求值报 E1901 |
-| K2 | `continuous` + `discrete`；整数刻度；多速率结构体（不做调度） |
-| K3 | `transient` + `sweep` |
-| K4 | 时间、参数、集合三种轴；CSV 导出 |
-| K5 | trait 与结构体，无实现 |
-| K6 | schema + 校验 |
-| K7 | `derive_seed` + 子流句柄 |
-| K8 | 结构体 + `Ord` |
-| K9 | 结构体 |
-| K10 | trait |
-| K11 | 基础几何类型 |
-| K12 | `ViewKind` 枚举 |
-| K13 | 解析与容差推导函数 |
-| K14 | 自定义量纲 + 角度标签 |
+M1 的**退出标准**（§12）聚焦于量纲、表达式、SD、跨目标确定性与快照；下列接口中
+只有被 M1 实际用到的部分已经落地。未落地的抽象在**首次使用它的里程碑之前**必须
+定稿（更新本 ADR 或写新 ADR），不得在实现时顺手发明。
+
+| 抽象 | 实际状态 | 未完成部分推迟到 |
+|---|---|---|
+| K1 | ✅ 标量类完整；`Complex` 等分支可解析、可类型推导、求值报 E1901 | — |
+| K2 | ✅ `continuous` + `discrete`；整数刻度 | 多速率结构体：M6 |
+| K3 | ✅ `Sim` 推进 + CLI `sweep`；⏳ **`Analysis` trait 尚未定义** | M3（与 `ensemble`、`fit` 一起定稿） |
+| K4 | ✅ `Dataset`（Time / Parameter / Ensemble 轴）+ CSV | — |
+| K5 | ⏳ `cetus-solve` 是占位 crate，trait 与 `SolveProblem` 未定义 | M6 |
+| K6 | ⏳ 连接器 schema 与 `FieldKind` 未定义 | M4（`signal` + `resource`） |
+| K7 | ✅ `derive_seed` + `RngStreams` | — |
+| K8 | ⏳ `EventKey` 未定义 | M6（DES 事件队列） |
+| K9 | ⏳ `Decision` 未定义 | M3 |
+| K10 | ⏳ `Policy` trait 未定义 | M8 |
+| K11 | ⏳ `cetus-geom` 是占位 crate | M7 |
+| K12 | ⏳ `ViewKind` 未定义 | M2（前端视图注册表） |
+| K13 | ⏳ 变量的 `scale:` 字段已解析；容差推导未实现（依赖 `dopri5`） | M1.5 |
+| K14 | ✅ 自定义量纲 + 角度标签 | 对数单位：M6 |
 
 ## 后果
 
 - M1 的接口评审必须对照本 ADR；任何「顺手改一下类型」都会破坏 P13。
-- 未来范式的 PR 如果修改了 `Type`、`TimeKind`、`Dataset`、`EventKey` 等类型，
-  CI 应能通过 `git diff` 发现；评审时直接拒绝并要求新 ADR。
-- M1 的测试需要包含一个「未来范式 schema」的编译测试，验证接口通用性。
+- 未来范式的 PR 如果修改了本文档中已定稿的类型（`Type`、`TimeKind`、`Dataset`，
+  以及后续定稿的 `EventKey`、`Analysis` 等），CI 应能通过 `git diff` 发现；
+  评审时直接拒绝并要求新 ADR。
+- M1 的测试包含一个「未来范式 schema」的编译测试（`content/fixtures/complex-fixture.yaml`），
+  验证 K1 的接口通用性。
+- 上表的推迟项是 M1 的范围修正，不是设计变更。M2 开工前先定稿 K12（`ViewKind`），
+  M3 定稿 K3（`Analysis`）与 K9（`Decision`），依此类推；定稿时更新本 ADR。

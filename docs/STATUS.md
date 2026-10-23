@@ -7,7 +7,7 @@
 | 里程碑 | 状态 |
 |---|---|
 | M0 基础设施 | 完成 |
-| M1 内核 v0（量纲、表达式、SD） | 完成（`dopri5`/`ros2` 推迟到 M1.5/M6） |
+| M1 内核 v0（量纲、表达式、SD） | 完成（`dopri5`/`ros2` 推迟到 M1.5/M6；核心抽象 K5/K6/K8–K12 的接口推迟到首次使用它们的里程碑，见 ADR-0004） |
 | M2 网页实验台 | 未开始 |
 
 ## M1 退出标准对照
@@ -29,8 +29,8 @@ CI 检查 native、wasm 与该文件三者一致（ADR-0001「黄金哈希」）
 
 ### 规模
 
-- Rust 测试：77 个通过（含 proptest）；
-- wasm 包：570 KB（gzip 214 KB），在 §5.13 的 800 KB 预算内；
+- Rust 测试：78 个通过（含 proptest）；
+- wasm 包：570 KB（gzip 213 KB），在 §5.13 的 800 KB 预算内；
 - 前端首屏构建：JS 230 KB / gzip 73 KB，CSS 3.4 KB / gzip 1.4 KB。
 
 ## M1 的已知限制
@@ -42,13 +42,16 @@ CI 检查 native、wasm 与该文件三者一致（ADR-0001「黄金哈希」）
 3. **不变量**：`assert`/`bounds` 的语义是“表达式为 0 即违反”，没有容差。
    `conserved_sum` 等 kind 尚未实现；SIR 的守恒改由测试检查。
 4. **离散模型**：`time.kind: discrete` 的 `euler` 语义已实现（flow 是每步增量），
-   但 `regex`/`dt ≠ 1` 的组合尚未测试。
+   但 `dt ≠ 1` 的组合尚未测试。
 5. **诊断源码定位**：表达式内部用字节 span；YAML 字段用 `path`（如
    `flows.charging.unit`）。字段级行号需要 serde_yaml_ng 的 span 支持，M2 再做。
 6. **内容仓库**：`content/` 暂驻引擎仓库，M5 拆分到 `cetus-content`。
+7. **核心抽象接口**：K1/K2/K4/K7/K13/K14 已落地，K3（`Analysis`）、K5、K6、K8–K12
+   仍是占位；它们的定稿时间见 ADR-0004「实现状态」。
 
 ## 下一步：M2 网页实验台 v0（§12 M2）
 
+0. 先定稿 K12 `ViewKind`（ADR-0004），再实现前端视图注册表；
 1. `cetus-wasm` 的 `compile` / `Sim` / `setParam` / `readProbes` / `snapshot` 接口，
    以及 `packages/sim-client` 的 TS 类型；
 2. uPlot 时序图、参数滑块（显示单位）、播放/暂停/步进/调速；
@@ -61,10 +64,12 @@ CI 检查 native、wasm 与该文件三者一致（ADR-0001「黄金哈希」）
 ## 复现验证
 
 ```bash
-cargo test --workspace
-cargo clippy --workspace --all-targets -- -D warnings
-./scripts/check-clippy-rules.sh      # clippy.toml 的确定性规则确实命中
 cargo fmt --all -- --check
+cargo clippy --workspace --all-targets -- -D warnings
+cargo test --workspace
+./scripts/check-clippy-rules.sh      # clippy.toml 的 60 条 std 规则确实命中
+./scripts/check-no-os-rng.sh         # cetus-wasm / cetus-cli 的产物依赖不含 getrandom
 ./scripts/check-cross-target.sh      # native = wasm = golden/hashes.txt
-npm install && npm run build:wasm && npm run typecheck && npm run build --workspace @cetus/web
+npm ci && npm run lockfile:check && npm run build:wasm
+npm run typecheck && npm test && npm run build --workspace @cetus/web
 ```

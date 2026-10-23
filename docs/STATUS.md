@@ -36,6 +36,9 @@ rc-circuit            d4918cb10516e21f3dad4d84042da346695fbb7b5106926b2d221897cc
 
 hello digest（M0 witness）：`dcc2a51fe7fb09bc332796b79f3ad92abe892fe8bcf2a44480d777900cd63fd7`
 
+以上哈希已锁定在 `crates/cetus-testkit/golden/hashes.txt`，CI 同时检查
+native 与 wasm 一致、以及二者与黄金值一致（ADR-0001「黄金哈希」）。
+
 ### 规模
 
 - Rust 测试：77 个通过（含 proptest）；
@@ -72,7 +75,8 @@ hello digest（M0 witness）：`dcc2a51fe7fb09bc332796b79f3ad92abe892fe8bcf2a444
 ```bash
 cargo test --workspace
 cargo clippy --workspace --all-targets -- -D warnings
+./scripts/check-clippy-rules.sh      # clippy.toml 的确定性规则确实命中
 cargo fmt --all -- --check
-./scripts/check-cross-target.sh
+./scripts/check-cross-target.sh      # native = wasm = golden/hashes.txt
 npm install && npm run build:wasm && npm run typecheck && npm run build --workspace @cetus/web
 ```

@@ -2,7 +2,12 @@
 # Cross-target determinism check (P2, §5.12, skills/cetus-determinism §3.1).
 #
 # 1. Compares the M0 hello digest between native and wasm.
-# 2. Runs every sample model on both targets and compares the 64-bit state hash.
+# 2. Runs every sample model on both targets and compares the state hash.
+# 3. Compares every hash against crates/cetus-testkit/golden/hashes.txt, so a
+#    change that moves native and wasm *together* (toolchain or dependency
+#    bump) also fails.
+#
+# Native runs the release profile, the same profile the wasm bundle ships with.
 #
 # Any mismatch is a P2 violation and must fail CI.
 set -euo pipefail
@@ -11,44 +16,65 @@ ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 cd "$ROOT"
 
 CARGO="${CARGO:-cargo}"
+GOLDEN_FILE="$ROOT/crates/cetus-testkit/golden/hashes.txt"
 
-native_digest="$("$CARGO" run -q -p cetus-cli -- hello | tail -1)"
-echo "native hello: $native_digest"
+# Prints the golden hash for a key, or nothing if the key is not recorded.
+golden() {
+  awk -v key="$1" '$0 !~ /^[[:space:]]*(#|$)/ && $1 == key { print $2; exit }' "$GOLDEN_FILE"
+}
+
+failures=0
+
+# Reports one result line and counts failures.
+#   compare <label> <golden-key> <native> <wasm>
+compare() {
+  local label="$1" key="$2" native="$3" wasm="$4" expected
+  expected="$(golden "$key")"
+  if [[ -z "$expected" ]]; then
+    printf "FAIL %-24s no golden entry for %s in %s\n" "$label" "$key" "$GOLDEN_FILE" >&2
+    printf "     native: %s\n     wasm:   %s\n" "$native" "$wasm" >&2
+    failures=$((failures + 1))
+  elif [[ "$native" != "$wasm" ]]; then
+    printf "FAIL %-24s native and wasm differ\n     native: %s\n     wasm:   %s\n" \
+      "$label" "$native" "$wasm" >&2
+    failures=$((failures + 1))
+  elif [[ "$native" != "$expected" ]]; then
+    printf "FAIL %-24s both targets agree but differ from the golden\n     got:    %s\n     golden: %s\n" \
+      "$label" "$native" "$expected" >&2
+    failures=$((failures + 1))
+  else
+    printf "OK   %-24s %s\n" "$label" "$native"
+  fi
+}
+
+"$CARGO" build -q --release -p cetus-cli
+CETUS="$ROOT/target/release/cetus"
 
 "$ROOT/scripts/build-wasm.sh" nodejs --release >/dev/null
+WASM_JS="$ROOT/target/wasm-pkg/nodejs/cetus.js"
 
+native_digest="$("$CETUS" hello | tail -1)"
 wasm_digest="$(node -e '
 const mod = require(process.argv[1]);
 process.stdout.write(mod.hello_digest());
-' "$ROOT/target/wasm-pkg/nodejs/cetus.js")"
-echo "wasm   hello: $wasm_digest"
+' "$WASM_JS")"
+compare "hello" "hello" "$native_digest" "$wasm_digest"
 
-if [[ "$native_digest" != "$wasm_digest" ]]; then
-  echo "FAIL: native and wasm hello digests differ (P2 violated)" >&2
-  exit 1
-fi
-
-failures=0
 while IFS= read -r model; do
-  native_hash="$("$CARGO" run -q -p cetus-cli -- run "$model" --hash --seed 1 | tail -1)"
+  native_hash="$("$CETUS" run "$model" --hash --seed 1 | tail -1)"
   wasm_hash="$(node -e '
 const fs = require("fs");
 const mod = require(process.argv[1]);
 const yaml = fs.readFileSync(process.argv[2], "utf8");
 process.stdout.write(mod.run_model_digest(yaml, 1));
-' "$ROOT/target/wasm-pkg/nodejs/cetus.js" "$model")"
-
-  if [[ "$native_hash" == "$wasm_hash" ]]; then
-    printf "OK   %-55s %s\n" "$(basename "$(dirname "$model")")" "$native_hash"
-  else
-    printf "FAIL %-55s\n  native: %s\n  wasm:   %s\n" "$model" "$native_hash" "$wasm_hash" >&2
-    failures=$((failures + 1))
-  fi
+' "$WASM_JS" "$model")"
+  compare "$(basename "$(dirname "$model")")" "$model" "$native_hash" "$wasm_hash"
 done < <(find content/modules -name module.yaml | sort)
 
-if (( failures > 0 )); then
-  echo "FAIL: $failures model(s) diverged between native and wasm" >&2
+if ((failures > 0)); then
+  echo "FAIL: $failures determinism check(s) failed (P2 violated)" >&2
+  echo "If a hash moved on purpose, update $GOLDEN_FILE and explain why in the PR (ADR-0001)." >&2
   exit 1
 fi
 
-echo "OK: native and wasm agree on every sample model"
+echo "OK: native, wasm and golden agree on the hello digest and every sample model"

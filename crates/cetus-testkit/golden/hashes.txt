@@ -1,0 +1,24 @@
+# Golden determinism hashes (P2, §5.12, skills/cetus-determinism §3.1).
+#
+# Native and wasm must not only agree with each other — they must agree with
+# this file. Otherwise a toolchain or dependency bump that shifts results on
+# both targets at once would pass the cross-target check unnoticed.
+#
+# Format: one `<key> <blake3 hex>` pair per line; `#` starts a comment.
+#   hello            cetus_kernel::hello_digest_hex()
+#   <module.yaml>    `cetus run <module.yaml> --hash --seed 1`, release build
+#
+# Updating this file is a deliberate act (ADR-0001 "升级流程"): the PR must say
+# which change moved the hashes and why the new values are correct.
+# Recorded 2026-10-23 at Rust 1.99.1, see docs/STATUS.md.
+
+hello dcc2a51fe7fb09bc332796b79f3ad92abe892fe8bcf2a44480d777900cd63fd7
+
+content/modules/bio/epidemic-sir/module.yaml 7b07b5374ea322c7139ebbbf69d979301cd1753a5dbdf62e61903c7cf2d594df
+content/modules/bio/population-logistic/module.yaml 1739d2070d444fd01493ab0a6f310d12577f553de0bf3f214ddaa99dcfa57f7a
+content/modules/bio/predator-prey/module.yaml 3f4788049c2a2ea259f2bb578fe9e3b52748d2938a261b1541f0775792850655
+content/modules/energy/solar-battery/module.yaml b897679e5ad4b1960fc5f1b40b94c884e2a4b106e00ef471950946c42c57aded
+content/modules/eng/inventory-oscillation/module.yaml 4323626c8f52dc1af4811c6b9744c73d44d55d58950befee6bbed2fd72142aae
+content/modules/math/decay/module.yaml a89ac686532106ffef53c261958202748b1c4fa2e2bf5818a2ac09e5c76fb406
+content/modules/math/logistic-map/module.yaml f09a82850098fe3c992eb730763af78a00e60885ebfba21806a471794c7f6c13
+content/modules/phys/rc-circuit/module.yaml d4918cb10516e21f3dad4d84042da346695fbb7b5106926b2d221897cc1d806e

@@ -120,10 +120,24 @@ CI 会静默通过。黄金值让这种变化变成显式失败。新增样板�
 与 1.99 均实测）。未来 clippy 若改变路径解析规则，探针检查会失败，此时以官方文档为准
 修正写法并更新本 ADR。
 
-第三方路径（`rand::*`、`getrandom::*`）加了 `allow-invalid = true`：clippy 对依赖图中
-不存在的条目不报错、也不命中，所以这些规则平时是「休眠」的，但只要有 crate 重新打开
-`rand` 的系统随机源特性（Cargo 会在整个 workspace 内合并特性），它们就开始命中。
+第三方路径（`rand::*`、`getrandom::*`）加了 `allow-invalid = true`：某个构建里这些条目
+不存在时（`rand` 的系统随机源特性没打开），clippy 不报错也不命中；存在时正常命中。
+注意 `Cargo.lock` 中记录了 `rand → getrandom` 这条边，说明在整个 workspace 的构建里
+（含 `proptest` 等测试依赖），`rand` 的系统随机源特性是被打开的。因此
+`cargo clippy --workspace --all-targets` 中 `rand::rng()` 等入口**是存在的**，这些规则
+在 CI 里实际生效，内核代码一调用就会被拒绝。
 探针不覆盖这些条目，因为探针刻意不带依赖。
+
+### 发布产物中没有系统随机源
+
+clippy 拦的是**调用**；`scripts/check-no-os-rng.sh`（CI 的 rust 任务）拦的是**依赖**：
+对真正发布或用于验收的产物——`cetus-wasm`（`wasm32-unknown-unknown`）和
+`cetus-cli`（native）——检查 normal 依赖树中没有 `getrandom`，命中时打印
+`cargo tree -e features -i getrandom`，指出是哪个特性把它带进来的。
+
+只检查这两个产物而不是整个 workspace：workspace 中 `proptest` 与 `tempfile` 合法地
+依赖 `getrandom`（测试用），整体检查必然误报。`cargo tree -p X` 与 `cargo build -p X`
+的特性解析相同，与 `scripts/build-wasm.sh`、`check-cross-target.sh` 的构建方式一致。
 
 ### `rand` 的默认特性被关闭
 
@@ -137,8 +151,8 @@ rand = { version = "0.10", default-features = false, features = ["std"] }
 
 M1 实测：这样可以在不启用 `getrandom` 的 `wasm_js` 特性的前提下编译到
 `wasm32-unknown-unknown`。如果将来某处确实需要 `rand::rng()`，必须经过 ADR
-评审，因为那会重新引入系统随机源。`clippy.toml` 对这些入口设了 `allow-invalid`
-规则，作为特性被意外打开时的第二道防线（见上节）。
+评审，因为那会重新引入系统随机源。两道检查见上：`clippy.toml` 拦调用，
+`scripts/check-no-os-rng.sh` 拦发布产物中的依赖。
 
 ### 溢出检查
 

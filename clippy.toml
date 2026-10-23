@@ -5,11 +5,13 @@
 # for example after a clippy upgrade changes path resolution. Adding an entry
 # here without a matching use in the probe also fails that check.
 #
-# Third-party paths (`rand`, `getrandom`) carry `allow-invalid = true`: the
-# workspace builds `rand` without its OS-randomness features, so those items do
-# not exist today, and clippy must not complain about that. If a crate ever
-# turns the features back on (Cargo unifies features across the workspace),
-# these rules start firing. See ADR-0001.
+# Third-party paths (`rand`, `getrandom`) carry `allow-invalid = true`: in a
+# build where `rand`'s OS-randomness features are off the items do not exist,
+# and clippy must not complain about that. In `cargo clippy --workspace
+# --all-targets` they *do* exist (Cargo.lock records rand -> getrandom: a
+# test-side dependency such as proptest turns the features on through feature
+# unification), so these rules are live in CI. The shipped artifacts
+# are kept free of getrandom by scripts/check-no-os-rng.sh. See ADR-0001.
 
 disallowed-types = [
   { path = "std::collections::HashMap", reason = "nondeterministic iteration; use IndexMap or BTreeMap (P2, D1)" },

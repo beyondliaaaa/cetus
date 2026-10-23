@@ -35,6 +35,12 @@ jobs:
       - name: clippy determinism rules fire
         run: ./scripts/check-clippy-rules.sh
 
+      # Feature unification must not bring OS randomness back into what we
+      # ship (D5, ADR-0001). Scoped to cetus-wasm and cetus-cli: the workspace
+      # as a whole legitimately has getrandom via proptest.
+      - name: no OS randomness in shipped artifacts
+        run: ./scripts/check-no-os-rng.sh
+
       - name: test
         run: cargo test --workspace
 

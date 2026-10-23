@@ -122,17 +122,19 @@ pub fn powf(x: f64, y: f64) -> f64 {
 /// This deliberately does not call `f64::powi`, whose rounding is unspecified
 /// for negative exponents. The implementation is fixed here so that every
 /// platform produces the same bits.
+///
+/// The exponent's magnitude is taken as `u32`, so `i32::MIN` is handled
+/// exactly (its magnitude does not fit in `i32`).
 #[must_use]
-pub fn powi(mut base: f64, mut exp: i32) -> f64 {
+pub fn powi(mut base: f64, exp: i32) -> f64 {
     if exp == 0 {
         return 1.0;
     }
     if exp < 0 {
         base = 1.0 / base;
-        exp = exp.checked_neg().unwrap_or(i32::MAX);
     }
     let mut acc = 1.0;
-    let mut e = exp;
+    let mut e = exp.unsigned_abs();
     while e > 0 {
         if e & 1 == 1 {
             acc *= base;
@@ -250,6 +252,17 @@ mod tests {
     fn powi_matches_repeated_multiplication() {
         assert!((powi(1.5, 3) - 3.375).abs() < f64::EPSILON);
         assert!((powi(2.0, -2) - 0.25).abs() < f64::EPSILON);
+    }
+
+    #[test]
+    fn powi_handles_extreme_exponents_exactly() {
+        // i32::MIN is even: (-1)^MIN = +1. Taking the magnitude as i32 used to
+        // saturate to i32::MAX (odd) and return -1.
+        assert_eq!(powi(-1.0, i32::MIN).to_bits(), 1.0f64.to_bits());
+        assert_eq!(powi(-1.0, i32::MAX).to_bits(), (-1.0f64).to_bits());
+        assert_eq!(powi(1.0, i32::MIN).to_bits(), 1.0f64.to_bits());
+        assert_eq!(powi(2.0, i32::MIN).to_bits(), 0.0f64.to_bits());
+        assert_eq!(powi(0.5, i32::MIN).to_bits(), f64::INFINITY.to_bits());
     }
 
     #[test]

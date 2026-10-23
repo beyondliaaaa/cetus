@@ -43,7 +43,7 @@ M0 需要把技术栈固定下来，让后续所有 crate、前端、CI 和验�
 | Rust | `1.99.1`（2026-10-13） | `rust-toolchain.toml` |
 | 目标 | `x86_64-unknown-linux-gnu`、`wasm32-unknown-unknown` | `rust-toolchain.toml` |
 | wasm-bindgen | crate `0.2.129` / CLI `0.2.129` | `Cargo.toml`、`scripts/build-wasm.sh` |
-| binaryen / wasm-opt | `version_123` | `scripts/build-wasm.sh` |
+| binaryen / wasm-opt | `version_123` | `scripts/build-wasm.sh`（`WASM_OPT_VERSION`，版本不符或缺失即失败）、`.github/workflows/ci.yml` |
 | serde | `1.0.229` | `Cargo.lock` |
 | libm | `0.2.16` | `Cargo.lock` |
 | blake3 | `1.8.7` | `Cargo.lock` |
@@ -64,6 +64,18 @@ M0 需要把技术栈固定下来，让后续所有 crate、前端、CI 和验�
 版本升级规则：任何一项升级都必须更新本 ADR 的表格，并在 PR 中附上跨目标哈希对比结果
 （`scripts/check-cross-target.sh` 通过）。
 
+### 黄金哈希
+
+`crates/cetus-testkit/golden/hashes.txt` 记录 hello 指纹与每个样板模型
+（`--seed 1`，跑到 `time.horizon`）的状态哈希。检查分两处：
+
+- `cargo test`：`cetus-testkit/tests/hello_digest.rs` 断言 native 的 hello 指纹等于黄金值；
+- `scripts/check-cross-target.sh`：native（release）与 wasm 必须彼此一致，**并且**与黄金值一致。
+
+只比较 native 与 wasm 是不够的：编译器或依赖升级如果让两端一起变化，两端仍然一致，
+CI 会静默通过。黄金值让这种变化变成显式失败。新增样板模型时必须同时登记黄金值，
+否则 `check-cross-target.sh` 失败。
+
 ### 编译器固定到 patch 版本
 
 `rust-toolchain.toml` 写死 `1.99.1`。理由：
@@ -73,7 +85,8 @@ M0 需要把技术栈固定下来，让后续所有 crate、前端、CI 和验�
 - 升级是有意的动作，需要重跑全部黄金轨迹并记录理由。
 
 升级流程：修改 `rust-toolchain.toml` → 重跑 `scripts/check-cross-target.sh` 与全部
-`cargo test` → 在 PR 中说明黄金轨迹是否有变化 → 更新本 ADR。
+`cargo test` → 如果黄金哈希变化，在 PR 中说明原因并更新 `golden/hashes.txt` →
+重跑 `scripts/check-clippy-rules.sh` → 更新本 ADR。
 
 ### 不使用 wasm-pack
 
@@ -91,17 +104,26 @@ M0 需要把技术栈固定下来，让后续所有 crate、前端、CI 和验�
 
 ### clippy 确定性规则
 
-`clippy.toml` 的 `disallowed-types` / `disallowed-methods` 已在 M0 实际验证生效：
+`clippy.toml` 覆盖：
 
-- `std::collections::HashMap` / `HashSet` → 命中；
-- `f64::sin`、`f64::mul_add` → 命中。
+- `HashMap` / `HashSet`（D1）；
+- `f64` 与 `f32` 的全部超越函数（含 `sin_cos`、`log`、反双曲函数），以及 `mul_add`（D2、D3）；
+- `Instant::now` / `SystemTime::now`（D5）；
+- `rand` / `getrandom` 中所有取操作系统随机源的入口（D5、D7）。
 
-验证方法：临时在 `crates/cetus-testkit/tests/` 放一个使用上述 API 的文件，运行
-`cargo clippy -p cetus-testkit --tests`，确认出现 `disallowed_types` /
-`disallowed_methods` 警告后删除该文件。本 ADR 记录该验证已完成（2026-10-23）。
+**验证是持续的，不是一次性的。** `tools/clippy-probe` 是一个不属于 workspace、
+没有依赖的 crate，故意违反每一条 `std` 规则；`scripts/check-clippy-rules.sh`
+（CI 的 rust 任务中运行）对它跑 clippy，任何一条规则没有命中就失败。在
+`clippy.toml` 新增 `std` 规则而不在探针里使用它，同样失败。
 
-路径写法说明：`f64::sin` 这种「类型::方法」形式在 clippy 1.99 下可以直接命中
-固有方法；未来 clippy 若改变路径解析规则，以当时的官方文档为准并更新本 ADR。
+路径写法说明：`f64::sin` 这种「类型::方法」形式可以直接命中固有方法（clippy 1.97
+与 1.99 均实测）。未来 clippy 若改变路径解析规则，探针检查会失败，此时以官方文档为准
+修正写法并更新本 ADR。
+
+第三方路径（`rand::*`、`getrandom::*`）加了 `allow-invalid = true`：clippy 对依赖图中
+不存在的条目不报错、也不命中，所以这些规则平时是「休眠」的，但只要有 crate 重新打开
+`rand` 的系统随机源特性（Cargo 会在整个 workspace 内合并特性），它们就开始命中。
+探针不覆盖这些条目，因为探针刻意不带依赖。
 
 ### `rand` 的默认特性被关闭
 
@@ -115,7 +137,8 @@ rand = { version = "0.10", default-features = false, features = ["std"] }
 
 M1 实测：这样可以在不启用 `getrandom` 的 `wasm_js` 特性的前提下编译到
 `wasm32-unknown-unknown`。如果将来某处确实需要 `rand::rng()`，必须经过 ADR
-评审，因为那会重新引入系统随机源。
+评审，因为那会重新引入系统随机源。`clippy.toml` 对这些入口设了 `allow-invalid`
+规则，作为特性被意外打开时的第二道防线（见上节）。
 
 ### 溢出检查
 

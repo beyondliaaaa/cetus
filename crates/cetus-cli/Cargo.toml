@@ -1,0 +1,25 @@
+[package]
+name = "cetus-cli"
+description = "The cetus command line tool"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+repository.workspace = true
+
+[lints]
+workspace = true
+
+[[bin]]
+name = "cetus"
+path = "src/main.rs"
+
+[dependencies]
+cetus-compile = { workspace = true }
+cetus-model = { workspace = true }
+cetus-kernel = { workspace = true }
+cetus-sd = { workspace = true }
+cetus-units = { workspace = true }
+cetus-math = { workspace = true }
+clap = { workspace = true }
+serde_json = { workspace = true }

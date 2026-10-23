@@ -1,0 +1,17 @@
+schema: cetus.model/0.1
+id: math.complex-fixture
+version: 1.0.0
+title: { zh-CN: "未来范式占位（复数）", en: "Future-paradigm fixture (complex)" }
+tier: speculative
+paradigms: [sd]
+time: { unit: s, dt: 0.1, horizon: 1, integrator: rk4 }
+parameters:
+  amplitude: { unit: "1", value: 1, kind: complex, source: "param:TODO-expert" }
+stocks:
+  x: { unit: "1", initial: "0" }
+auxiliaries:
+  y: { unit: "1", eq: "amplitude * 2" }
+meta:
+  authors: ["Cetus contributors"]
+  sources: ["src:TODO-expert"]
+  assumptions: ["仅用于验证 K1 接口的通用性；不对应任何真实模型"]

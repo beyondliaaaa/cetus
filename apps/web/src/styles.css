@@ -1,0 +1,218 @@
+:root {
+  color-scheme: dark;
+  --bg: #070b16;
+  --bg-soft: #0d1424;
+  --panel: rgb(18 27 48 / 72%);
+  --line: rgb(122 162 255 / 18%);
+  --ink: #e8eefc;
+  --ink-dim: #9aa8c7;
+  --accent: #7fd4ff;
+  --accent-warm: #ffd9a0;
+  --danger: #ff9b9b;
+  --radius: 18px;
+  --font-sans: "Inter", "Noto Sans SC", "PingFang SC", "Microsoft YaHei", system-ui, sans-serif;
+  --font-mono: "JetBrains Mono", "SFMono-Regular", ui-monospace, monospace;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+html,
+body {
+  margin: 0;
+  min-height: 100%;
+  background: var(--bg);
+  color: var(--ink);
+  font-family: var(--font-sans);
+  -webkit-font-smoothing: antialiased;
+}
+
+body {
+  min-height: 100dvh;
+}
+
+.shell {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  gap: 1.25rem;
+  max-width: 46rem;
+  min-height: 100dvh;
+  margin: 0 auto;
+  padding: max(1.5rem, env(safe-area-inset-top)) 1.25rem
+    max(1.5rem, env(safe-area-inset-bottom));
+}
+
+.stars {
+  position: fixed;
+  inset: 0;
+  z-index: -1;
+  background:
+    radial-gradient(1200px 600px at 15% -10%, rgb(55 110 200 / 28%), transparent 60%),
+    radial-gradient(900px 500px at 110% 10%, rgb(120 80 200 / 18%), transparent 55%),
+    radial-gradient(600px 400px at 50% 120%, rgb(30 140 160 / 16%), transparent 60%),
+    var(--bg);
+}
+
+.stars::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  background-image:
+    radial-gradient(1px 1px at 20% 30%, rgb(255 255 255 / 55%), transparent 100%),
+    radial-gradient(1px 1px at 70% 15%, rgb(255 255 255 / 40%), transparent 100%),
+    radial-gradient(1px 1px at 45% 65%, rgb(255 255 255 / 30%), transparent 100%),
+    radial-gradient(1px 1px at 85% 55%, rgb(255 255 255 / 35%), transparent 100%),
+    radial-gradient(1px 1px at 10% 80%, rgb(255 255 255 / 25%), transparent 100%);
+  background-size: 420px 420px;
+  opacity: 0.7;
+}
+
+.header h1 {
+  margin: 0.2rem 0 0;
+  font-size: clamp(1.9rem, 7vw, 2.6rem);
+  font-weight: 650;
+  letter-spacing: 0.02em;
+}
+
+.eyebrow {
+  margin: 0;
+  color: var(--accent);
+  font-family: var(--font-mono);
+  font-size: 0.72rem;
+  letter-spacing: 0.22em;
+  text-transform: uppercase;
+}
+
+.tagline {
+  margin: 0.5rem 0 0;
+  color: var(--ink-dim);
+  font-size: 0.98rem;
+  line-height: 1.6;
+}
+
+.lang {
+  margin-top: 0.9rem;
+  padding: 0.35rem 0.75rem;
+  border: 1px solid var(--line);
+  border-radius: 999px;
+  background: transparent;
+  color: var(--ink-dim);
+  font: inherit;
+  font-size: 0.8rem;
+  cursor: pointer;
+}
+
+.lang:hover {
+  border-color: var(--accent);
+  color: var(--ink);
+}
+
+.card {
+  padding: 1.15rem 1.15rem 1.25rem;
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  background: var(--panel);
+  backdrop-filter: blur(14px);
+}
+
+.card h2 {
+  margin: 0 0 0.5rem;
+  font-size: 1.02rem;
+  font-weight: 600;
+  letter-spacing: 0.01em;
+}
+
+.card p {
+  margin: 0;
+  color: var(--ink-dim);
+  font-size: 0.92rem;
+  line-height: 1.65;
+}
+
+.card--quiet {
+  background: rgb(13 20 36 / 55%);
+}
+
+.facts {
+  display: grid;
+  gap: 0.9rem;
+  margin: 1rem 0 0;
+}
+
+.facts div {
+  display: grid;
+  gap: 0.25rem;
+}
+
+.facts dt {
+  color: var(--ink-dim);
+  font-size: 0.76rem;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.facts dd {
+  margin: 0;
+  min-height: 1.4em;
+}
+
+code {
+  font-family: var(--font-mono);
+  font-size: 0.84rem;
+}
+
+.digest {
+  display: block;
+  overflow-wrap: anywhere;
+  padding: 0.5rem 0.65rem;
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  background: rgb(6 10 20 / 70%);
+  color: var(--accent);
+  line-height: 1.5;
+}
+
+.muted {
+  color: var(--ink-dim);
+  font-size: 0.88rem;
+}
+
+.error {
+  color: var(--danger);
+  font-size: 0.88rem;
+  line-height: 1.5;
+}
+
+.footer {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: space-between;
+  gap: 0.5rem;
+  margin-top: auto;
+  padding-top: 0.5rem;
+  color: rgb(154 168 199 / 70%);
+  font-size: 0.72rem;
+}
+
+@media (prefers-reduced-motion: no-preference) {
+  .card {
+    animation: rise 480ms ease-out both;
+  }
+
+  .card:nth-of-type(2) {
+    animation-delay: 80ms;
+  }
+}
+
+@keyframes rise {
+  from {
+    opacity: 0;
+    transform: translateY(8px);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}

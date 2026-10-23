@@ -1,0 +1,25 @@
+schema: cetus.model/0.1
+id: phys.rc-circuit
+version: 1.0.0
+title: { zh-CN: "RC 充放电", en: "RC charge and discharge" }
+tier: empirical
+paradigms: [sd]
+time: { unit: s, dt: 0.01, horizon: 10, integrator: rk4 }
+parameters:
+  resistance: { unit: "Ω", value: 1000, range: [1, 100000], source: "param:TODO-expert" }
+  capacitance: { unit: F, value: 0.001, range: [1e-9, 1], source: "param:TODO-expert" }
+  source_voltage: { unit: V, value: 5, range: [0, 100], role: control }
+stocks:
+  charge: { unit: C, initial: "0" }
+auxiliaries:
+  capacitor_voltage: { unit: V, eq: "charge / capacitance" }
+  current: { unit: A, eq: "(source_voltage - capacitor_voltage) / resistance" }
+flows:
+  charging: { to: charge, unit: A, eq: "current" }
+observables:
+  capacitor_voltage: { unit: V, eq: "capacitor_voltage" }
+  current: { unit: A, eq: "current" }
+meta:
+  authors: ["Cetus contributors"]
+  sources: ["src:TODO-expert"]
+  assumptions: ["理想电阻与电容；导线电阻为零；电源内阻为零"]

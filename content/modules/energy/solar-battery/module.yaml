@@ -1,0 +1,64 @@
+schema: cetus.model/0.1
+id: energy.solar-battery
+version: 1.0.0
+title: { zh-CN: "太阳能板与蓄电池", en: "Solar panel and battery" }
+tier: empirical
+paradigms: [sd]
+
+time:
+  unit: h
+  dt: 0.05
+  horizon: 72
+  integrator: rk4
+
+parameters:
+  area:
+    { unit: "m^2", value: 12, range: [1, 100], role: control }
+  efficiency:
+    { unit: "1", value: 0.20, range: [0.05, 0.47], source: "param:pv.module-efficiency" }
+  peak_irradiance:
+    { unit: "W/m^2", value: 1000, range: [0, 1400], source: "param:solar.peak-irradiance.earthlike" }
+  day_length:
+    { unit: h, value: 26, source: "world:planet.day_length" }
+  capacity:
+    { unit: "kW*h", value: 20, range: [1, 200], role: control }
+  load:
+    { unit: W, value: 800, range: [0, 5000], role: input }
+
+stocks:
+  charge:
+    unit: "kW*h"
+    initial: "0.5 * capacity"
+    bounds: { min: 0, max: capacity }
+
+auxiliaries:
+  irradiance:
+    unit: "W/m^2"
+    eq: "peak_irradiance * max(0, sin(2*pi*time/day_length))"
+  pv_power:
+    unit: W
+    eq: "efficiency * area * irradiance"
+
+flows:
+  charging:
+    to: charge
+    unit: W
+    eq: "if charge < capacity then pv_power else 0"
+  discharging:
+    from: charge
+    unit: W
+    eq: "if charge > 0 then load else 0"
+
+observables:
+  charge_pct: { unit: "1", eq: "charge / capacity", display: percent }
+  pv_power_w: { unit: W, eq: "pv_power" }
+
+invariants:
+  - { id: charge-bounds, kind: bounds, expr: "charge >= 0 and charge <= capacity" }
+
+meta:
+  authors: ["Cetus contributors"]
+  sources: ["src:TODO-expert"]
+  assumptions:
+    - "辐照度用正弦半波近似日变化，忽略云量与大气质量"
+    - "充放电效率视为 1（后续课程引入损耗）"

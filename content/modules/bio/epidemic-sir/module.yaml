@@ -1,0 +1,32 @@
+schema: cetus.model/0.1
+id: bio.epidemic-sir
+version: 1.0.0
+title: { zh-CN: "SIR 传染病模型", en: "SIR epidemic" }
+tier: empirical
+paradigms: [sd]
+time: { unit: day, dt: 0.05, horizon: 160, integrator: rk4 }
+parameters:
+  transmission: { unit: "1/(person*day)", value: 0.0002, range: [0, 0.01], source: "param:TODO-expert" }
+  recovery: { unit: "1/day", value: 0.1, range: [0, 1], source: "param:TODO-expert" }
+stocks:
+  susceptible: { unit: person, initial: "990", bounds: { min: 0 } }
+  infectious: { unit: person, initial: "10", bounds: { min: 0 } }
+  recovered: { unit: person, initial: "0", bounds: { min: 0 } }
+flows:
+  infection:
+    from: susceptible
+    to: infectious
+    unit: "person/day"
+    eq: "transmission * susceptible * infectious"
+  recovery:
+    from: infectious
+    to: recovered
+    unit: "person/day"
+    eq: "recovery * infectious"
+observables:
+  infectious: { unit: person, eq: "infectious" }
+  total: { unit: person, eq: "susceptible + infectious + recovered" }
+meta:
+  authors: ["Cetus contributors"]
+  sources: ["src:TODO-expert"]
+  assumptions: ["均匀混合；感染后获得永久免疫；无出生与死亡"]

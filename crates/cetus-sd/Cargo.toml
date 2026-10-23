@@ -1,0 +1,22 @@
+[package]
+name = "cetus-sd"
+description = "Paradigm: system dynamics / ODE"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+repository.workspace = true
+
+[lints]
+workspace = true
+
+[dependencies]
+cetus-compile = { workspace = true }
+cetus-kernel = { workspace = true }
+cetus-expr = { workspace = true }
+cetus-model = { workspace = true }
+cetus-math = { workspace = true }
+
+
+[dev-dependencies]
+proptest = { workspace = true }

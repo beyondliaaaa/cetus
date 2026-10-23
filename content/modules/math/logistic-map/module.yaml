@@ -1,0 +1,19 @@
+schema: cetus.model/0.1
+id: math.logistic-map
+version: 1.0.0
+title: { zh-CN: "logistic 映射", en: "Logistic map" }
+tier: empirical
+paradigms: [sd]
+time: { unit: "1", dt: 1, horizon: 80, integrator: euler, kind: discrete }
+parameters:
+  rate: { unit: "1", value: 3.2, range: [0, 4], role: control }
+stocks:
+  x: { unit: "1", initial: "0.2", bounds: { min: 0, max: 1 } }
+flows:
+  next: { to: x, unit: "1", eq: "rate * x * (1 - x) - x" }
+observables:
+  x: { unit: "1", eq: "x" }
+meta:
+  authors: ["Cetus contributors"]
+  sources: ["src:TODO-expert"]
+  assumptions: ["离散时间步；x 是归一化种群比例；r 在 [0,4] 之间"]

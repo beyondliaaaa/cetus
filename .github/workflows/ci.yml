@@ -1,0 +1,118 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+env:
+  CARGO_TERM_COLOR: always
+  RUSTFLAGS: -D warnings
+
+jobs:
+  rust:
+    name: Rust (fmt, clippy, test)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      # Pin the toolchain from rust-toolchain.toml (ADR-0001).
+      - name: Install Rust
+        run: rustup show active-toolchain || rustup toolchain install
+
+      - uses: Swatinem/rust-cache@v2
+
+      - name: rustfmt
+        run: cargo fmt --all -- --check
+
+      - name: clippy
+        run: cargo clippy --workspace --all-targets -- -D warnings
+
+      - name: test
+        run: cargo test --workspace
+
+  determinism:
+    name: Cross-target determinism (native vs wasm)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install Rust
+        run: rustup show active-toolchain || rustup toolchain install
+
+      - uses: Swatinem/rust-cache@v2
+
+      # taiki-e/install-action ships prebuilt binaries; the version must match
+      # the crate version in Cargo.lock (scripts/build-wasm.sh enforces this).
+      - name: Install wasm-bindgen-cli 0.2.129
+        uses: taiki-e/install-action@v2
+        with:
+          tool: wasm-bindgen-cli@0.2.129
+
+      - name: Install binaryen (wasm-opt)
+        run: sudo apt-get update && sudo apt-get install -y binaryen
+
+      - name: Compare native and wasm digests
+        run: ./scripts/check-cross-target.sh
+
+  web:
+    name: Web (typecheck, build)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+
+      - name: Install Rust
+        run: rustup show active-toolchain || rustup toolchain install
+
+      - uses: Swatinem/rust-cache@v2
+
+      - name: Install wasm-bindgen-cli 0.2.129
+        uses: taiki-e/install-action@v2
+        with:
+          tool: wasm-bindgen-cli@0.2.129
+
+      - name: Install binaryen (wasm-opt)
+        run: sudo apt-get update && sudo apt-get install -y binaryen
+
+      - name: Install npm dependencies
+        run: npm ci
+
+      - name: Build wasm bundle
+        run: npm run build:wasm
+
+      - name: Typecheck
+        run: npm run typecheck
+
+      - name: Build web app
+        run: npm run build --workspace @cetus/web
+
+  assets:
+    name: Asset licence records (P14)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Install PyYAML
+        run: python3 -m pip install --user --break-system-packages pyyaml
+      - name: Every file under assets/ has a LICENSES.yaml entry
+        run: |
+          python3 - <<'PY'
+          import pathlib, sys, yaml
+          root = pathlib.Path("assets")
+          known = yaml.safe_load((root / "LICENSES.yaml").read_text(encoding="utf-8")) or []
+          listed = {entry["file"] for entry in known}
+          actual = {
+              str(p)
+              for p in root.rglob("*")
+              if p.is_file() and p.name != "LICENSES.yaml"
+          }
+          missing = sorted(actual - listed)
+          if missing:
+              print("unrecorded assets:", *missing, sep="\n  ")
+              sys.exit(1)
+          print(f"ok: {len(actual)} assets recorded")
+          PY

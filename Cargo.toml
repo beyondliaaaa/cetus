@@ -1,0 +1,95 @@
+[workspace]
+resolver = "3"
+members = [
+    "crates/cetus-math",
+    "crates/cetus-geom",
+    "crates/cetus-solve",
+    "crates/cetus-props",
+    "crates/cetus-units",
+    "crates/cetus-expr",
+    "crates/cetus-model",
+    "crates/cetus-compile",
+    "crates/cetus-kernel",
+    "crates/cetus-sd",
+    "crates/cetus-abm",
+    "crates/cetus-pde",
+    "crates/cetus-physics",
+    "crates/cetus-trace",
+    "crates/cetus-lesson",
+    "crates/cetus-world",
+    "crates/cetus-verify",
+    "crates/cetus-wasm",
+    "crates/cetus-cli",
+    "crates/cetus-testkit",
+]
+
+[workspace.package]
+version = "0.0.0"
+edition = "2024"
+rust-version = "1.99"
+license = "MIT OR Apache-2.0"
+repository = "https://github.com/cetus-game/cetus"
+authors = ["The Cetus contributors"]
+
+# Determinism policy (P2, §5.12): release builds keep overflow checks on so that
+# native tests and the wasm release build take the same branch on integer overflow.
+[workspace.lints.rust]
+unsafe_code = "forbid"
+missing_debug_implementations = "warn"
+
+[workspace.lints.clippy]
+all = { level = "warn", priority = -1 }
+pedantic = { level = "warn", priority = -1 }
+module_name_repetitions = "allow"
+missing_errors_doc = "allow"
+missing_panics_doc = "allow"
+must_use_candidate = "allow"
+cast_precision_loss = "allow"
+cast_possible_truncation = "allow"
+cast_sign_loss = "allow"
+too_many_lines = "allow"
+similar_names = "allow"
+many_single_char_names = "allow"
+
+[profile.release]
+overflow-checks = true
+debug = false
+lto = "thin"
+codegen-units = 1
+
+[profile.bench]
+overflow-checks = true
+
+[workspace.dependencies]
+cetus-math = { path = "crates/cetus-math" }
+cetus-geom = { path = "crates/cetus-geom" }
+cetus-solve = { path = "crates/cetus-solve" }
+cetus-props = { path = "crates/cetus-props" }
+cetus-units = { path = "crates/cetus-units" }
+cetus-expr = { path = "crates/cetus-expr" }
+cetus-model = { path = "crates/cetus-model" }
+cetus-compile = { path = "crates/cetus-compile" }
+cetus-kernel = { path = "crates/cetus-kernel" }
+cetus-sd = { path = "crates/cetus-sd" }
+cetus-lesson = { path = "crates/cetus-lesson" }
+cetus-world = { path = "crates/cetus-world" }
+cetus-verify = { path = "crates/cetus-verify" }
+cetus-testkit = { path = "crates/cetus-testkit" }
+
+# Pin exact versions in ADR-0001. Update that ADR with the pin when bumping.
+serde = { version = "1.0", features = ["derive"] }
+serde_json = "1.0"
+serde_yaml_ng = "0.10"
+schemars = "1.2"
+thiserror = "2.0"
+indexmap = { version = "2.14", features = ["serde"] }
+blake3 = "1.8"
+libm = "0.2"
+postcard = { version = "1.1", features = ["alloc"] }
+lz4_flex = { version = "0.14", default-features = false, features = ["std"] }
+rand = { version = "0.10", default-features = false, features = ["std"] }
+rand_chacha = { version = "0.10", features = ["serde"] }
+proptest = "1.12"
+clap = { version = "4.6", features = ["derive"] }
+miette = "7.6"
+wasm-bindgen = "0.2.129"

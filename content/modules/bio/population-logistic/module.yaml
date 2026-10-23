@@ -1,0 +1,21 @@
+schema: cetus.model/0.1
+id: bio.population-logistic
+version: 1.0.0
+title: { zh-CN: "有限环境下的种群增长", en: "Logistic population growth" }
+tier: empirical
+paradigms: [sd]
+time: { unit: h, dt: 0.05, horizon: 40, integrator: rk4 }
+parameters:
+  growth_rate: { unit: "1/h", value: 0.3, range: [0, 2], source: "param:TODO-expert" }
+  carrying_capacity: { unit: person, value: 1000, range: [1, 100000], source: "param:TODO-expert" }
+  initial_population: { unit: person, value: 10, range: [1, 10000], source: "param:TODO-expert" }
+stocks:
+  population: { unit: person, initial: "initial_population", bounds: { min: 0, max: carrying_capacity } }
+flows:
+  growth: { to: population, unit: "person/h", eq: "growth_rate * population * (1 - population / carrying_capacity)" }
+observables:
+  population: { unit: person, eq: "population" }
+meta:
+  authors: ["Cetus contributors"]
+  sources: ["src:TODO-expert"]
+  assumptions: ["资源上限体现为承载力 K；忽略年龄结构与环境随机性"]

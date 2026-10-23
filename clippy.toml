@@ -1,0 +1,36 @@
+# Determinism policy P2 / §5.12 / skills/cetus-determinism §4.
+# Path syntax is verified by crates/cetus-testkit/tests/clippy_rules.rs guidance
+# in docs/adr/0001-tech-stack-and-versions.md.
+
+disallowed-types = [
+  { path = "std::collections::HashMap", reason = "nondeterministic iteration; use IndexMap or BTreeMap (P2, D1)" },
+  { path = "std::collections::HashSet", reason = "nondeterministic iteration; use IndexSet or BTreeSet (P2, D1)" },
+]
+
+disallowed-methods = [
+  { path = "f64::sin", reason = "use cetus_math (D2)" },
+  { path = "f64::cos", reason = "use cetus_math (D2)" },
+  { path = "f64::tan", reason = "use cetus_math (D2)" },
+  { path = "f64::asin", reason = "use cetus_math (D2)" },
+  { path = "f64::acos", reason = "use cetus_math (D2)" },
+  { path = "f64::atan", reason = "use cetus_math (D2)" },
+  { path = "f64::atan2", reason = "use cetus_math (D2)" },
+  { path = "f64::sinh", reason = "use cetus_math (D2)" },
+  { path = "f64::cosh", reason = "use cetus_math (D2)" },
+  { path = "f64::tanh", reason = "use cetus_math (D2)" },
+  { path = "f64::exp", reason = "use cetus_math (D2)" },
+  { path = "f64::exp2", reason = "use cetus_math (D2)" },
+  { path = "f64::exp_m1", reason = "use cetus_math (D2)" },
+  { path = "f64::ln", reason = "use cetus_math (D2)" },
+  { path = "f64::ln_1p", reason = "use cetus_math (D2)" },
+  { path = "f64::log10", reason = "use cetus_math (D2)" },
+  { path = "f64::log2", reason = "use cetus_math (D2)" },
+  { path = "f64::powf", reason = "use cetus_math (D2)" },
+  { path = "f64::powi", reason = "use cetus_math (D2)" },
+  { path = "f64::sqrt", reason = "use cetus_math (D2)" },
+  { path = "f64::cbrt", reason = "use cetus_math (D2)" },
+  { path = "f64::hypot", reason = "use cetus_math (D2)" },
+  { path = "f64::mul_add", reason = "fused multiply-add changes rounding (D3)" },
+  { path = "std::time::SystemTime::now", reason = "no wall clock in the kernel (D5)" },
+  { path = "std::time::Instant::now", reason = "no wall clock in the kernel (D5)" },
+]

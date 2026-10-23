@@ -1,0 +1,20 @@
+[package]
+name = "cetus-compile"
+description = "Model -> IR compiler with static checks and diagnostics"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+repository.workspace = true
+
+[lints]
+workspace = true
+
+[dependencies]
+cetus-units = { workspace = true }
+cetus-expr = { workspace = true }
+cetus-model = { workspace = true }
+indexmap = { workspace = true }
+thiserror = { workspace = true }
+blake3 = { workspace = true }
+

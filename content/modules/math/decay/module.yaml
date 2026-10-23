@@ -1,0 +1,19 @@
+schema: cetus.model/0.1
+id: math.decay
+version: 1.0.0
+title: { zh-CN: "指数衰减", en: "Exponential decay" }
+tier: empirical
+paradigms: [sd]
+time: { unit: h, dt: 0.05, horizon: 24, integrator: rk4 }
+parameters:
+  rate: { unit: "1/h", value: 0.1, range: [0, 1], source: "param:TODO-expert" }
+stocks:
+  amount: { unit: mol, initial: "1" }
+flows:
+  decay: { from: amount, unit: "mol/h", eq: "rate * amount" }
+observables:
+  amount: { unit: mol, eq: "amount" }
+meta:
+  authors: ["Cetus contributors"]
+  sources: ["src:TODO-expert"]
+  assumptions: ["一阶线性衰减；半衰期与初值无关"]

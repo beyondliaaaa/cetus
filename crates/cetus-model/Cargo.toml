@@ -1,0 +1,19 @@
+[package]
+name = "cetus-model"
+description = "Declarative model schema (cetus.model/*) and migrations"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+repository.workspace = true
+
+[lints]
+workspace = true
+
+[dependencies]
+cetus-units = { workspace = true }
+serde = { workspace = true }
+serde_yaml_ng = { workspace = true }
+indexmap = { workspace = true }
+thiserror = { workspace = true }
+

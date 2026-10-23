@@ -1,0 +1,31 @@
+# Rust
+/target
+**/*.rs.bk
+
+# Node
+node_modules/
+dist/
+.vite/
+*.tsbuildinfo
+
+# Generated wasm bundles (produced by scripts/build-wasm.sh)
+apps/web/src/wasm/generated/
+
+# OS / editor
+.DS_Store
+*.swp
+.idea/
+.vscode/*
+!.vscode/settings.json
+!.vscode/extensions.json
+
+# Local environment
+.env
+.env.local
+
+# Local tool state (not part of the project)
+.codegraph
+.omo
+
+# Windows download metadata
+*:Zone.Identifier

@@ -1,0 +1,26 @@
+schema: cetus.model/0.1
+id: eng.inventory-oscillation
+version: 1.0.0
+title: { zh-CN: "库存与订货延迟", en: "Inventory and ordering delay" }
+tier: empirical
+paradigms: [sd]
+time: { unit: week, dt: 0.02, horizon: 60, integrator: rk4 }
+parameters:
+  demand: { unit: "item/week", value: 10, range: [0, 100], source: "param:TODO-expert" }
+  order_rate: { unit: "item/week", value: 10, range: [0, 100], role: control }
+  lead_time: { unit: week, value: 4, range: [0.5, 20], role: control }
+  target_inventory: { unit: item, value: 100, range: [0, 1000], source: "param:TODO-expert" }
+stocks:
+  inventory: { unit: item, initial: "60", bounds: { min: 0 } }
+  in_transit: { unit: item, initial: "40", bounds: { min: 0 } }
+flows:
+  shipping: { from: inventory, unit: "item/week", eq: "if inventory > 0 then demand else 0" }
+  ordering: { to: in_transit, unit: "item/week", eq: "order_rate" }
+  arrival: { from: in_transit, to: inventory, unit: "item/week", eq: "in_transit / lead_time" }
+observables:
+  inventory: { unit: item, eq: "inventory" }
+  in_transit: { unit: item, eq: "in_transit" }
+meta:
+  authors: ["Cetus contributors"]
+  sources: ["src:TODO-expert"]
+  assumptions: ["需求恒定；订货率恒定；运输延迟用一阶滞留近似"]

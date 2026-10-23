@@ -1,0 +1,29 @@
+schema: cetus.model/0.1
+id: bio.predator-prey
+version: 1.0.0
+title: { zh-CN: "捕食者与猎物", en: "Predator-prey (Lotka-Volterra)" }
+tier: empirical
+paradigms: [sd]
+time: { unit: month, dt: 0.02, horizon: 120, integrator: rk4 }
+parameters:
+  prey_growth: { unit: "1/month", value: 1.0, range: [0, 5], source: "param:TODO-expert" }
+  predation: { unit: "1/(person*month)", value: 0.01, range: [0, 1], source: "param:TODO-expert" }
+  predator_efficiency: { unit: "1/(person*month)", value: 0.005, range: [0, 1], source: "param:TODO-expert" }
+  predator_death: { unit: "1/month", value: 0.5, range: [0, 5], source: "param:TODO-expert" }
+stocks:
+  prey: { unit: person, initial: "50", bounds: { min: 0 } }
+  predator: { unit: person, initial: "10", bounds: { min: 0 } }
+auxiliaries:
+  encounters: { unit: "person^2", eq: "prey * predator" }
+flows:
+  prey_birth: { to: prey, unit: "person/month", eq: "prey_growth * prey" }
+  prey_death: { from: prey, unit: "person/month", eq: "predation * encounters" }
+  predator_birth: { to: predator, unit: "person/month", eq: "predator_efficiency * encounters" }
+  predator_death: { from: predator, unit: "person/month", eq: "predator_death * predator" }
+observables:
+  prey: { unit: person, eq: "prey" }
+  predator: { unit: person, eq: "predator" }
+meta:
+  authors: ["Cetus contributors"]
+  sources: ["src:TODO-expert"]
+  assumptions: ["猎物无限增长受捕食限制；无环境容纳量；无年龄结构"]

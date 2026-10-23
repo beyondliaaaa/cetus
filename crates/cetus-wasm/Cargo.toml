@@ -1,0 +1,22 @@
+[package]
+name = "cetus-wasm"
+description = "wasm-bindgen bindings for the browser client"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+repository.workspace = true
+
+[lints]
+workspace = true
+
+[lib]
+crate-type = ["cdylib", "rlib"]
+
+[dependencies]
+cetus-model = { workspace = true }
+cetus-compile = { workspace = true }
+cetus-sd = { workspace = true }
+cetus-math = { workspace = true }
+cetus-kernel = { workspace = true }
+wasm-bindgen = { workspace = true }

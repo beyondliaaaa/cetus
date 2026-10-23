@@ -17,27 +17,15 @@
 | 8 个样板模型全部通过测试，有解析解的 nrmse < 1e-4 | `crates/cetus-sd/tests/sample_models.rs`：9 项测试通过；decay 1.6e-12、logistic 1.3e-10、RC 1.3e-11；SIR 守恒、Lotka–Volterra 不变量漂移 0、logistic 映射逐位对照 |
 | `sweep` 以 `Dataset` 输出 CSV | `cetus-kernel::Dataset`（Time / Parameter / Ensemble 轴）；`cetus sweep` 实测 4×3 网格输出正确 |
 | 未来范式 schema：解析/名称/类型推导通过，求值报 E1901 | `crates/cetus-compile` 的 `complex_model_typechecks_then_reports_e1901`；fixture 在 `content/fixtures/complex-fixture.yaml` |
-| 每个样板模型在 native 与 WASM 下状态哈希相同 | `./scripts/check-cross-target.sh`：8 个模型全部 OK（见下） |
+| 每个样板模型在 native 与 WASM 下状态哈希相同 | `./scripts/check-cross-target.sh`：8 个模型全部 OK，并与 `golden/hashes.txt` 一致（见下） |
 | 快照往返（proptest，1000 例） | `crates/cetus-sd/tests/snapshot.rs`，1000 例通过，约 4.3 s |
 | 故意写错的单位得到 E1xxx 且定位准确 | `rejects_a_flow_with_the_wrong_dimension` 断言 `E1203` 且 `path == flows.charging.unit` |
 
-### 跨目标哈希（2026-10-23）
+### 跨目标哈希
 
-```text
-epidemic-sir          7b07b5374ea322c7139ebbbf69d979301cd1753a5dbdf62e61903c7cf2d594df
-population-logistic   1739d2070d444fd01493ab0a6f310d12577f553de0bf3f214ddaa99dcfa57f7a
-predator-prey         3f4788049c2a2ea259f2bb578fe9e3b52748d2938a261b1541f0775792850655
-solar-battery         b897679e5ad4b1960fc5f1b40b94c884e2a4b106e00ef471950946c42c57aded
-inventory-oscillation 4323626c8f52dc1af4811c6b9744c73d44d55d58950befee6bbed2fd72142aae
-decay                 a89ac686532106ffef53c261958202748b1c4fa2e2bf5818a2ac09e5c76fb406
-logistic-map          f09a82850098fe3c992eb730763af78a00e60885ebfba21806a471794c7f6c13
-rc-circuit            d4918cb10516e21f3dad4d84042da346695fbb7b5106926b2d221897cc1d806e
-```
-
-hello digest（M0 witness）：`dcc2a51fe7fb09bc332796b79f3ad92abe892fe8bcf2a44480d777900cd63fd7`
-
-以上哈希已锁定在 `crates/cetus-testkit/golden/hashes.txt`，CI 同时检查
-native 与 wasm 一致、以及二者与黄金值一致（ADR-0001「黄金哈希」）。
+唯一的真相源是 [`crates/cetus-testkit/golden/hashes.txt`](../crates/cetus-testkit/golden/hashes.txt)
+（hello 指纹 + 8 个样板模型，`--seed 1`）。本页不再抄录数值，避免两处不同步。
+CI 检查 native、wasm 与该文件三者一致（ADR-0001「黄金哈希」）。
 
 ### 规模
 

@@ -10,7 +10,8 @@
 #
 # Updating this file is a deliberate act (ADR-0001 "升级流程"): the PR must say
 # which change moved the hashes and why the new values are correct.
-# Recorded 2026-10-23 at Rust 1.99.1, see docs/STATUS.md.
+# Recorded 2026-10-23 at Rust 1.99.1. This file is the only source of truth for
+# these values; docs/STATUS.md links here instead of copying them.
 
 hello dcc2a51fe7fb09bc332796b79f3ad92abe892fe8bcf2a44480d777900cd63fd7
 

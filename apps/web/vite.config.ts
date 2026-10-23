@@ -15,5 +15,8 @@ export default defineConfig({
   },
   test: {
     environment: "node",
+    // No web tests yet (lesson-runtime and UI tests arrive in M2/M3). Without
+    // this, `vitest run` exits non-zero on "no test files" and `npm test` fails.
+    passWithNoTests: true,
   },
 });

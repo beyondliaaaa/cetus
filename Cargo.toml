@@ -28,7 +28,7 @@ version = "0.0.0"
 edition = "2024"
 rust-version = "1.99"
 license = "MIT OR Apache-2.0"
-repository = "https://github.com/cetus-game/cetus"
+repository = "https://github.com/beyondliaaaa/cetus"
 authors = ["The Cetus contributors"]
 
 # Determinism policy (P2, §5.12): release builds keep overflow checks on so that

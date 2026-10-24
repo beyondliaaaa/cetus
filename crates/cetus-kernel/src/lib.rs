@@ -455,8 +455,16 @@ impl Sim {
         bytes: &[u8],
     ) -> Result<Self, SnapshotError> {
         let snapshot = snapshot::decode(bytes)?;
-        if snapshot.model_id != plan.model_id || snapshot.content_hash != plan.content_hash {
-            return Err(SnapshotError::BadMagic);
+        if snapshot.model_id != plan.model_id {
+            return Err(SnapshotError::WrongModel {
+                snapshot_model: snapshot.model_id,
+                loaded_model: plan.model_id.clone(),
+            });
+        }
+        if snapshot.content_hash != plan.content_hash {
+            return Err(SnapshotError::ModelChanged {
+                model: snapshot.model_id,
+            });
         }
         if snapshot.state.len() != plan.layout.len() {
             return Err(SnapshotError::Decode(

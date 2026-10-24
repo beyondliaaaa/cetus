@@ -496,14 +496,26 @@ pub fn compile_model(model: &Model) -> Result<CompiledPlan, Diagnostics> {
                 Some(&format!("parameters.{name}.source")),
             ));
         }
-        if let Some(range) = spec.range
-            && range[0] > range[1]
-        {
-            diagnostics.push(Diagnostic::error(
-                "E1209",
-                format!("range of `{name}` is inverted"),
-                Some(&format!("parameters.{name}.range")),
-            ));
+        if let Some(range) = spec.range {
+            if range[0] > range[1] {
+                diagnostics.push(Diagnostic::error(
+                    "E1209",
+                    format!("range of `{name}` is inverted"),
+                    Some(&format!("parameters.{name}.range")),
+                ));
+            } else if !(spec.value >= range[0] && spec.value <= range[1]) {
+                // The kernel rejects out-of-range values in `set_param`; the
+                // declared default must obey the same contract, or an edited
+                // model (`editModel` set_value) could start outside its range.
+                diagnostics.push(Diagnostic::error(
+                    "E1211",
+                    format!(
+                        "value of `{name}` ({}) is outside its range [{}, {}] {}",
+                        spec.value, range[0], range[1], spec.unit
+                    ),
+                    Some(&format!("parameters.{name}.value")),
+                ));
+            }
         }
         parameters.push(CompiledParameter {
             name: name.clone(),
@@ -1384,6 +1396,45 @@ mod tests {
         let model = Model::from_yaml(&yaml).expect("parse");
         let diagnostics = compile_model(&model).expect_err("must fail");
         assert!(diagnostics.iter().any(|d| d.code == "E2101"));
+    }
+
+    const SOLAR_AREA: &str = r#"area: { unit: "m^2", value: 12, range: [1, 100], role: control }"#;
+
+    fn solar_with_area(area: &str) -> Model {
+        let yaml = crate::SOLAR_YAML.replace(SOLAR_AREA, area);
+        assert_ne!(yaml, crate::SOLAR_YAML, "the area line was not found");
+        Model::from_yaml(&yaml).expect("parse")
+    }
+
+    #[test]
+    fn rejects_a_parameter_value_outside_its_range() {
+        let model =
+            solar_with_area(r#"area: { unit: "m^2", value: 150, range: [1, 100], role: control }"#);
+        let diagnostics = compile_model(&model).expect_err("must fail");
+        let out_of_range = diagnostics
+            .iter()
+            .find(|diagnostic| diagnostic.code == "E1211")
+            .expect("E1211");
+        assert_eq!(out_of_range.path.as_deref(), Some("parameters.area.value"));
+    }
+
+    #[test]
+    fn accepts_parameter_values_on_the_range_bounds() {
+        for value in ["1", "100"] {
+            let model = solar_with_area(&format!(
+                r#"area: {{ unit: "m^2", value: {value}, range: [1, 100], role: control }}"#
+            ));
+            assert!(compile_model(&model).is_ok(), "value {value} is on a bound");
+        }
+    }
+
+    #[test]
+    fn an_inverted_range_reports_e1209_only() {
+        let model =
+            solar_with_area(r#"area: { unit: "m^2", value: 12, range: [100, 1], role: control }"#);
+        let diagnostics = compile_model(&model).expect_err("must fail");
+        assert!(diagnostics.iter().any(|d| d.code == "E1209"));
+        assert!(diagnostics.iter().all(|d| d.code != "E1211"));
     }
 
     const SIR_YAML: &str = r#"

@@ -6,8 +6,8 @@ tier: empirical
 paradigms: [sd]
 time: { unit: day, dt: 0.05, horizon: 160, integrator: rk4 }
 parameters:
-  transmission: { unit: "1/(person*day)", value: 0.0002, range: [0, 0.01], source: "param:TODO-expert" }
-  recovery: { unit: "1/day", value: 0.1, range: [0, 1], source: "param:TODO-expert" }
+  transmission: { unit: "1/(person*day)", value: 0.0002, range: [0, 0.01], role: control, source: "param:TODO-expert" }
+  recovery: { unit: "1/day", value: 0.1, range: [0, 1], role: control, source: "param:TODO-expert" }
 stocks:
   susceptible: { unit: person, initial: "990", bounds: { min: 0 } }
   infectious: { unit: person, initial: "10", bounds: { min: 0 } }

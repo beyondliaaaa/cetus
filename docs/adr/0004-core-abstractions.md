@@ -225,7 +225,7 @@ M1 的**退出标准**（§12）聚焦于量纲、表达式、SD、跨目标确�
 | K9 | ⏳ `Decision` 未定义 | M3 |
 | K10 | ⏳ `Policy` trait 未定义 | M8 |
 | K11 | ⏳ `cetus-geom` 是占位 crate | M7 |
-| K12 | ⏳ `ViewKind` 未定义 | M2（前端视图注册表） |
+| K12 | ✅ `ViewKind` + `ParadigmId::views` 已实现；前端视图注册表随 M2 落地 | — |
 | K13 | ⏳ 变量的 `scale:` 字段已解析；容差推导未实现（依赖 `dopri5`） | M1.5 |
 | K14 | ✅ 自定义量纲 + 角度标签 | 对数单位：M6 |
 
@@ -237,5 +237,6 @@ M1 的**退出标准**（§12）聚焦于量纲、表达式、SD、跨目标确�
   评审时直接拒绝并要求新 ADR。
 - M1 的测试包含一个「未来范式 schema」的编译测试（`content/fixtures/complex-fixture.yaml`），
   验证 K1 的接口通用性。
-- 上表的推迟项是 M1 的范围修正，不是设计变更。M2 开工前先定稿 K12（`ViewKind`），
-  M3 定稿 K3（`Analysis`）与 K9（`Decision`），依此类推；定稿时更新本 ADR。
+- 上表的推迟项是 M1 的范围修正，不是设计变更。K12 已在 M2 定稿
+  （`ViewKind` + `ParadigmId::views()`，前端 `views/registry.ts` 随 M2 落地）；
+  M3 定稿 K3（`Analysis`）与 K9（`Decision`），依此类推，定稿时更新本 ADR。

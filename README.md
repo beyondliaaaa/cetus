@@ -42,8 +42,21 @@
 - **跨目标确定性**：8 个模型的 native、wasm 状态哈希与
   [`golden/hashes.txt`](crates/cetus-testkit/golden/hashes.txt) 三者一致。
 
-下一个里程碑是 **M2 — 网页实验台**（在浏览器中加载模型、调参、运行、看图、
-编辑方程）。里程碑与退出标准见指南 §12。
+**M2 — 网页实验台 v0（完成）**
+
+- `cetus-wasm` 实现 §5.13 浏览器接口：编译、元数据、推进/调速、参数、探针、
+  快照/恢复、表达式实时校验与模型编辑；K12 `ViewKind` 由 `ParadigmId::views()`
+  声明。
+- `@cetus/sim-client` 提供完整 TS 契约，WASM 只在 Worker 中运行（Comlink）。
+- 实验台（`apps/web`）：8 个模型的加载与参数调节、播放/暂停/单步/重置、
+  uPlot 时序图、快照内存/文件保存、诊断面板、xyflow 存量-流量画布、
+  MathLive + ASCII 方程编辑与实时量纲反馈、i18next（zh-CN/en）、手机竖屏布局。
+- **SIR 与太阳能板–蓄电池**两个模型可在浏览器中完整运行和编辑；编辑失败时
+  保留原仿真并显示可读诊断。
+- 真机中端安卓性能尚未补测，已知限制见 [`docs/STATUS.md`](docs/STATUS.md)。
+
+下一个里程碑是 **M3 — 引导探究与验收 V0–V4**（课程 schema、任务运行时、
+实验台仪器与对照图、`cetus verify`）。里程碑与退出标准见指南 §12。
 
 ## 快速开始
 

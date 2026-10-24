@@ -1,0 +1,145 @@
+schema: cetus.lesson/0.1
+id: lesson.energy.battery-night-broken
+version: 1.0.0
+node: "kg:eng.energy.pv-basics"
+module: energy.solar-battery@^1
+
+objectives:
+  - id: o1
+    text: { zh-CN: "光伏功率与面积、效率、辐照度成正比" }
+  - id: o2
+    text: { zh-CN: "能用存量-流量思想预测蓄电池何时耗尽" }
+
+truth:
+  overrides:
+    parameters:
+      efficiency: { value: 0.183 }
+
+instruments:
+  - id: lux_meter
+    measures: irradiance
+    every: "0.5[h]"
+    noise: { kind: gaussian_rel, sigma: 0.03 }
+  - id: power_meter
+    measures: pv_power
+    every: "0.5[h]"
+    noise: { kind: gaussian_rel, sigma: 0.02 }
+  - id: battery_gauge
+    measures: charge_pct
+    every: "1[h]"
+    resolution: 0.01
+
+player_model:
+  base: truth
+  holes:
+    - id: h_pv
+      target: auxiliaries.does_not_exist.eq
+      kind: equation
+      palette: [efficiency, area, irradiance, "+", "*", "/"]
+      hints: [hint.pv.1, hint.pv.2, hint.pv.3]
+    - id: h_eff
+      target: parameters.efficiency.value
+      kind: parameter
+
+tasks:
+  - id: t1
+    kind: measure
+    done_when: "used(lux_meter) and used(power_meter)"
+  - id: t2
+    kind: build
+    hole: h_pv
+    check: { kind: expr_equiv }
+  - id: t3
+    kind: estimate
+    hole: h_eff
+    check: { kind: param_within, rel_tol: 0.08 }
+  - id: t4
+    kind: predict
+    prompt: prompt.battery-empty-time
+    answer: "first_time(charge <= 0)"
+    setup: { params: { load: "1200[W]" }, initial: { charge: "0.3 * capacity" } }
+    check: { kind: abs_tol, tol: "1[h]" }
+  - id: t5
+    kind: fit
+    check: { kind: trajectory_fit, observable: charge_pct, metric: nrmse, max: 0.05, window: ["0[h]", "72[h]"] }
+
+misconceptions:
+  - id: m_square
+    note: "认为功率与辐照度的平方成正比"
+    patch: { auxiliaries.pv_power.eq: "efficiency * area * irradiance^2 / 1000[W/m^2]" }
+    must_fail: [t2, t5]
+  - id: m_constant_sun
+    note: "忽略昼夜，把辐照度当成常数（日均值）"
+    patch: { auxiliaries.irradiance.eq: "peak_irradiance / pi" }
+    must_fail: [t4, t5]
+
+mastery:
+  node: "kg:eng.energy.pv-basics"
+  maintenance_events: [event.dust-on-panels, event.cloudy-week]
+
+narrative:
+  intro: dialog.whale.battery-night.intro
+  outro: dialog.whale.battery-night.outro
+
+layers:
+  L0:
+    tasks:
+      - id: l0-1
+        kind: tinker
+        prompt: prompt.keep-lights-on-at-night
+        controls: [area, capacity]
+        check: { kind: world_state, expr: "min(charge) > 0", window: ["0[h]", "72[h]"] }
+  L1:
+    holes:
+      - { id: c1, kind: causal_link, from: area, to: pv_power }
+      - { id: c2, kind: causal_link, from: load, to: charge }
+      - { id: c3, kind: causal_link, from: irradiance, to: charging }
+    tasks:
+      - { id: l1-1, kind: build, holes: [c1, c2, c3], check: { kind: causal_sign } }
+    misconceptions:
+      - id: m_load_helps
+        note: "以为负荷越大充得越快"
+        patch: { c2: increase }
+        must_fail: [l1-1]
+  L2:
+    inherit: base
+  L3:
+    tasks:
+      - id: l3-1
+        kind: code
+        prompt: prompt.write-charge-scheduler
+        check: { kind: property, spec: spec.scheduler-never-empties }
+
+teaching:
+  - id: teach-natives-1
+    learner: native
+    layer: L0
+    holds: m_load_helps
+    claim: dialog.native.sun-never-sleeps
+    setup_space:
+      controls:
+        load: { range: ["0[W]", "2000[W]"] }
+        capacity: { range: ["5[kW*h]", "40[kW*h]"] }
+      initial:
+        charge_pct: { range: [0.2, 1.0] }
+      instruments: [battery_gauge, lux_meter, power_meter]
+      duration: { max: "52[h]" }
+    check: { kind: discriminating_experiment, min_separation: 4.0, require_prediction: true }
+    on_success: dialog.native.sun-never-sleeps.convinced
+    variants: [teach-natives-1b]
+  - id: teach-natives-1b
+    learner: native
+    layer: L0
+    holds: m_load_helps
+    claim: dialog.native.sun-never-sleeps.rainy-season
+    setup_space: { inherit: teach-natives-1, duration: { max: "78[h]" } }
+    check: { kind: discriminating_experiment, min_separation: 4.0, require_prediction: true }
+  - id: teach-subagent-1
+    learner: subagent
+    layer: L2
+    gives: [h_pv, h_eff]
+    scenarios:
+      - { id: s1, setup: { params: { load: "900[W]" } } }
+      - { id: s2, setup: { params: { load: "1400[W]" }, initial: { charge: "0.4 * capacity" } } }
+    check: { kind: world_state, expr: "min(charge) > 0.05 * capacity", window: ["0[h]", "52[h]"] }
+    new_situations: [event.cloudy-week, event.dust-on-panels]

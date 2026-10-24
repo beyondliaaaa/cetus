@@ -45,6 +45,8 @@ M0 需要把技术栈固定下来，让后续所有 crate、前端、CI 和验�
 | wasm-bindgen | crate `0.2.129` / CLI `0.2.129` | `Cargo.toml`、`scripts/build-wasm.sh` |
 | binaryen / wasm-opt | `version_123` | `scripts/build-wasm.sh`（`WASM_OPT_VERSION`，版本不符或缺失即失败）、`.github/workflows/ci.yml` |
 | serde | `1.0.229` | `Cargo.lock` |
+| serde_json | `1.0.154`（`cetus-wasm` 的 JSON 线格式、`cetus-cli --json`） | `Cargo.lock` |
+| serde_yaml_ng | `0.10.0`（ADR-0002） | `Cargo.lock` |
 | libm | `0.2.16` | `Cargo.lock` |
 | blake3 | `1.8.7` | `Cargo.lock` |
 | clap | `4.6.7` | `Cargo.lock` |
@@ -56,11 +58,19 @@ M0 需要把技术栈固定下来，让后续所有 crate、前端、CI 和验�
 | lz4_flex | `0.14.0` | `Cargo.lock` |
 | thiserror | `2.0.21` | `Cargo.lock` |
 | schemars | `1.2.3` | 尚未使用（M5 导出 schema 时锁定） |
-| miette | `7.6.0` | 尚未使用（M2 富诊断渲染时锁定） |
+| miette | `7.6.0` | 尚未使用（M2 的诊断以 JSON 交给前端渲染，未采用；需要时再锁定） |
 | Vite | `7.3.7` | `package-lock.json` |
-| React | `19.2.x` | `package-lock.json` |
+| React / react-dom | `19.3.1` | `package-lock.json` |
 | TypeScript | `5.9.3` | `package-lock.json` |
 | Comlink | `4.4.2` | `package-lock.json` |
+| @vitejs/plugin-react | `5.2.0` | `package-lock.json` |
+| Vitest | `3.2.7` | `package-lock.json` |
+| @xyflow/react | `12.12.0`（模型画布，§4.4） | `package-lock.json` |
+| uPlot | `1.6.32`（时序图） | `package-lock.json` |
+| MathLive | `0.111.1`（公式输入，按需懒加载；字体随包分发，不请求外部域名——由 `apps/web/e2e` 的页面健康检查持续验证） | `package-lock.json` |
+| i18next / react-i18next / i18next-icu | `26.5.6` / `17.1.3` / `2.6.1` | `package-lock.json` |
+| intl-messageformat | `12.1.4`（i18next-icu 的必需对等依赖，已显式声明） | `package-lock.json` |
+| @playwright/test | `1.64.1`（端到端测试；浏览器由 CI 单独安装） | `package-lock.json` |
 
 版本升级规则：任何一项升级都必须更新本 ADR 的表格，并在 PR 中附上跨目标哈希对比结果
 （`scripts/check-cross-target.sh` 通过）。

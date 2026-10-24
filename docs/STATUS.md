@@ -46,9 +46,10 @@
 
 | 退出标准（§12 M2） | 证据 |
 |---|---|
-| SIR 和太阳能板–蓄电池两个模型可以在网页中完整运行和编辑 | Playwright（Chromium）实测：加载、播放/暂停/单步/重置、调参、画布选择、方程编辑、重编译与重置均通过；SIR 编辑 `infection`，太阳能编辑 `pv_power` 与 `charge` 初值 `0.5 * capacity` |
-| 编辑出错时有可读的提示 | 实时量纲反馈（例如 `m^2` vs `W`、`1/day` vs `person/day`）；解析错误带 caret；编译错误（如 E3101 代数环）同时出现在编辑器内联与全局诊断面板 |
-| 10 万步运行时 UI 不卡顿 | 仿真全部在 Worker；wasm 版 SIR（dt=0.001）连续 100,000 个 RK4 宏步耗时约 **31 ms**，读取 100,000 对探针约 **1.5 ms**；UI 状态更新节流到约 15 Hz，曲线渲染前降采样到 2400 点 |
+| SIR 和太阳能板–蓄电池两个模型可以在网页中完整运行和编辑 | `apps/web/e2e/workbench.e2e.ts`（Playwright，CI 的 web 任务）：两个模型在浏览器中跑到终点，界面显示的状态哈希**等于黄金值**；播放/暂停/单步/重置；调参改变结果、恢复默认后回到黄金值；快照经内存与下载文件恢复；`pv_power` 编辑与 `charge` 初值 `0.5 * capacity`。另有 2026-10-24 人工检查通过 |
+| 编辑出错时有可读的提示 | 同上：单位不匹配与解析错误给出说明并禁止应用；公式输入拒绝无底数的 `\log` 并提示 `\lg`/`\ln`。所有提示文案经 ICU 解析测试（`src/i18n/messages.test.ts`） |
+| 10 万步运行时 UI 不卡顿 | 仿真全部在 Worker（主线程不调用 wasm）。吞吐量：`scripts/bench-wasm.cjs`（CI 的 determinism 任务），SIR dt=0.001、全部观测量带探针，100,000 个 RK4 宏步加读取探针，预算 1.5 s（本地实测约 31 ms，预算按 CI 共享机器放宽）。UI 状态更新节流到约 15 Hz，曲线渲染前降采样到 2400 点 |
+| （确定性：分段推进） | 浏览器按 `step(n)`/`runUntil(t)` 分段推进，结果与一次跑完逐位相同：`cetus-wasm` 测试（分段 1/7/1000 与交替模式）与 `check-cross-target.sh` 的 wasm `step(997)` 路径，均对照黄金值 |
 
 ## M2 已知限制
 
@@ -58,7 +59,9 @@
 2. **编辑语义**：方程编辑通过 `editModel` 重新序列化 YAML，会丢失 YAML 注释；
    编辑成功后仿真重置（内容哈希变化，旧快照同时失效）。
 3. **MathLive 子集**：只接受算术、`sqrt`、常用函数与 `\pi`；求和、积分、矩阵、
-   下标、赋值会给出结构化错误，不会静默丢字符。
+   下标、赋值会给出结构化错误，不会静默丢字符。对数必须写明底数：`\lg` 或
+   `\log_{10}` → `log10`，`\ln` 或 `\log_e` → `ln`；无底数的 `\log` 报错（内核本身也
+   没有含义模糊的 `log`）。`e^{x}` 中的 `e` 当作普通标识符，不会转换成 `exp`。
 4. **图表**：最多两条带标签的 y 轴；超过两个单位分组时其余系列仍绘制但没有
    独立轴标签。
 5. **主题**：当前为深色仪器面板；浅色主题尚未按 §10.4 设计与验证。
@@ -66,7 +69,9 @@
    真实中端安卓机上跑首屏与帧率测试（§10.5）。
 7. **WASM 体积**：核心包 gzip 约 **290 KB**（§5.13 预算 800 KB）；M2 引入的
    JSON 序列化是主要增量，仍有充足余量。
-8. **M1 遗留**：仅 `euler`/`rk4`；`delay1`/`delay3`/`smooth` 求值为 0；
+8. **浏览器解析 YAML**：实验台在浏览器中解析模型 YAML（含 `modelSource.ts` 的
+   正则读取），这是 ADR-0002 的有期限例外，至 M5，见 ADR-0005。
+9. **M1 遗留**：仅 `euler`/`rk4`；`delay1`/`delay3`/`smooth` 求值为 0；
    不变量无容差；YAML 字段级行号仍待 serde span 支持；`content/` 仍暂驻引擎仓库。
 
 ## M1 退出标准对照
@@ -88,10 +93,11 @@ CI 检查 native、wasm 与该文件三者一致（ADR-0001「黄金哈希」）
 
 ### 规模
 
-- Rust 测试：**89** 个通过（含 proptest）；
-- 前端测试：**43** 个通过（Vitest，7 个纯函数测试文件）；
-- wasm 包：739 KB，gzip **290 KB**（§5.13 预算 800 KB）；
-- 前端构建：主 JS 644 KB / gzip 212 KB，CSS 44 KB / gzip 8.5 KB；
+- Rust 测试：**97** 个通过（含 proptest）；
+- 前端测试：**51** 个通过（Vitest，8 个测试文件）；
+- 端到端测试：**12** 个通过（Playwright，生产构建，CI 的 web 任务）；
+- wasm 包：758 KB，gzip **290 KB**（§5.13 预算 800 KB）；
+- 前端构建：主 JS 646 KB / gzip 213 KB，CSS 44 KB / gzip 8.5 KB；
   MathLive 及其 CSS 是独立的按需 chunk（JS 823 KB / gzip 229 KB），只在用户展开
   公式输入时加载。
 
@@ -115,9 +121,11 @@ cargo clippy --workspace --all-targets -- -D warnings
 cargo test --workspace
 ./scripts/check-clippy-rules.sh      # clippy.toml 的 60 条 std 规则确实命中
 ./scripts/check-no-os-rng.sh         # cetus-wasm / cetus-cli 的产物依赖不含 getrandom
-./scripts/check-cross-target.sh      # native = wasm = golden/hashes.txt
+./scripts/check-cross-target.sh      # native = wasm（一次跑完与分段推进）= golden/hashes.txt
+node scripts/bench-wasm.cjs target/wasm-pkg/nodejs/cetus.js   # 10 万步吞吐（上一步已构建 nodejs 包）
 npm ci && npm run lockfile:check && npm run build:wasm
 npm run typecheck && npm test && npm run build --workspace @cetus/web
+npx playwright install chromium && npm run test:e2e --workspace @cetus/web   # 12 个端到端测试
 ```
 
 浏览器验收（开发服务器）：

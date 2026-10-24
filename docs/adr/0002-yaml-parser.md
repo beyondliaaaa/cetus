@@ -45,7 +45,8 @@
 - 所有 schema 结构体加 `#[serde(deny_unknown_fields)]`，除非该区块明确允许扩展字段。
 - 解析错误必须带 `file`、`line`、`col`，转换为 §5.4 的诊断码 E0xxx。
 - 不在运行时解析 YAML：YAML 只在构建内容包（`cetus bundle`）与作者预览时解析；
-  玩家端加载的是预编译的内容包。
+  玩家端加载的是预编译的内容包。M2 实验台在浏览器中解析 YAML，是一个有范围和期限
+  （至 M5）的例外，见 [ADR-0005](0005-runtime-yaml-in-workbench.md)。
 
 ## 后果
 

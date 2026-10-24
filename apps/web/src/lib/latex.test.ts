@@ -55,8 +55,33 @@ describe("LaTeX conversion", () => {
     expect(ascii("\\arcsin(x)+\\arccos(x)+\\arctan(x)")).toBe(
       "asin(x)+acos(x)+atan(x)",
     );
-    expect(ascii("\\ln(x)+\\exp(x)+\\log(x)")).toBe("ln(x)+exp(x)+log10(x)");
+    expect(ascii("\\ln(x)+\\exp(x)")).toBe("ln(x)+exp(x)");
     expect(ascii("\\sin^2(x)")).toBe("(sin(x))^(2)");
+  });
+
+  it("requires logarithms to name their base", () => {
+    // Common logarithm: \lg (Chinese / ISO 80000-2 notation) or \log_{10}.
+    expect(ascii("\\lg(x)")).toBe("log10(x)");
+    expect(ascii("\\lg x")).toBe("log10(x)");
+    expect(ascii("\\log_{10}(x)")).toBe("log10(x)");
+    expect(ascii("\\log_{ 10 } x")).toBe("log10(x)");
+    // Natural logarithm: \ln or \log_e.
+    expect(ascii("\\log_e(x)")).toBe("ln(x)");
+    expect(ascii("\\log_{e} x")).toBe("ln(x)");
+    // Powers still apply after the base.
+    expect(ascii("\\log_{10}^2(x)")).toBe("(log10(x))^(2)");
+
+    // A bare \log is ambiguous (ln or log10 depending on the field): reject.
+    expect(failure("\\log(x)").code).toBe("log-base");
+    expect(failure("\\log x").code).toBe("log-base");
+    expect(failure("\\log_{}(x)").code).toBe("log-base");
+    expect(failure("\\log_").code).toBe("log-base");
+
+    const base2 = failure("\\log_2(x)");
+    expect(base2.code).toBe("log-base-unsupported");
+    expect(base2.detail).toBe("2");
+    // Unbraced subscripts are one token in LaTeX: \log_10 means base 1.
+    expect(failure("\\log_10(x)").detail).toBe("1");
   });
 
   it("unwraps roman and text identifiers", () => {

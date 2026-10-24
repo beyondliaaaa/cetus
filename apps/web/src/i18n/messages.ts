@@ -187,12 +187,16 @@ export const zhCN = {
   "editor.latex.sum": "不支持求和符号。",
   "editor.latex.integral": "不支持积分符号。",
   "editor.latex.matrix": "不支持矩阵或对齐环境。",
-  "editor.latex.subscript": "不支持下标；变量名请用 \\mathrm{...} 写，例如 \\mathrm{pv\\_power}。",
+  "editor.latex.subscript": "不支持下标；变量名请用 \\mathrm'{...}' 写，例如 \\mathrm'{pv\\_power}'。",
   "editor.latex.assignment": "这里只写等号右边的式子，不要写赋值。",
   "editor.latex.missing-brace": "花括号没有配对。",
   "editor.latex.unexpected": "无法解析这里的符号：{detail}",
-  "editor.latex.text": "\\mathrm{...} 或 \\text{...} 里只能写一个标识符。",
+  "editor.latex.text": "\\mathrm'{...}' 或 \\text'{...}' 里只能写一个标识符。",
   "editor.latex.function-argument": "函数 {detail} 后面缺少参数。",
+  "editor.latex.log-base":
+    "\\log 要写明底数：常用对数写 \\lg 或 \\log_'{10}'，自然对数写 \\ln。",
+  "editor.latex.log-base-unsupported":
+    "不支持以 {detail} 为底的对数；只能用 \\lg（\\log_'{10}'）或 \\ln（\\log_e）。",
 
   "footer.license": "代码 MIT OR Apache-2.0 · 内容 CC BY-SA 4.0",
   "footer.tagline": "所有数字都带单位，所有模型都可运行。",
@@ -386,12 +390,16 @@ export const en = {
   "editor.latex.sum": "Sums are not supported.",
   "editor.latex.integral": "Integrals are not supported.",
   "editor.latex.matrix": "Matrices and alignment environments are not supported.",
-  "editor.latex.subscript": "Subscripts are not supported; write identifiers with \\mathrm{...}, for example \\mathrm{pv\\_power}.",
+  "editor.latex.subscript": "Subscripts are not supported; write identifiers with \\mathrm'{...}', for example \\mathrm'{pv\\_power}'.",
   "editor.latex.assignment": "Enter the right-hand side only; assignments are not supported.",
   "editor.latex.missing-brace": "A brace is not closed.",
   "editor.latex.unexpected": "Cannot parse this symbol: {detail}",
-  "editor.latex.text": "\\mathrm{...} and \\text{...} must contain a single identifier.",
+  "editor.latex.text": "\\mathrm'{...}' and \\text'{...}' must contain a single identifier.",
   "editor.latex.function-argument": "The function {detail} is missing its argument.",
+  "editor.latex.log-base":
+    "Give \\log a base: write \\lg or \\log_'{10}' for the common logarithm, \\ln for the natural logarithm.",
+  "editor.latex.log-base-unsupported":
+    "Logarithms to base {detail} are not supported; use \\lg (\\log_'{10}') or \\ln (\\log_e).",
 
   "footer.license": "Code MIT OR Apache-2.0 · content CC BY-SA 4.0",
   "footer.tagline": "Every number carries a unit. Every model runs.",

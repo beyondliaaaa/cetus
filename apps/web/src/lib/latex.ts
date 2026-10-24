@@ -14,18 +14,24 @@
 // allow: SIZE_OK — the parser methods form one indivisible recursive-descent
 // state machine; splitting the grammar across files would make it harder to audit.
 
-export type LatexErrorCode =
-  | "empty"
-  | "unknown-command"
-  | "sum"
-  | "integral"
-  | "matrix"
-  | "subscript"
-  | "assignment"
-  | "missing-brace"
-  | "unexpected"
-  | "text"
-  | "function-argument";
+/** Every error the converter can report; each needs an `editor.latex.<code>` message. */
+export const LATEX_ERROR_CODES = [
+  "empty",
+  "unknown-command",
+  "sum",
+  "integral",
+  "matrix",
+  "subscript",
+  "assignment",
+  "missing-brace",
+  "unexpected",
+  "text",
+  "function-argument",
+  "log-base",
+  "log-base-unsupported",
+] as const;
+
+export type LatexErrorCode = (typeof LATEX_ERROR_CODES)[number];
 
 export interface LatexSuccess {
   ok: true;
@@ -62,7 +68,18 @@ const FUNCTIONS: Readonly<Record<string, string>> = {
   arctan: "atan",
   ln: "ln",
   exp: "exp",
-  log: "log10",
+  // `\lg` is the common logarithm in Chinese (and ISO 80000-2) notation.
+  lg: "log10",
+  // `\log` is deliberately absent: without a base it means ln in much of
+  // mathematics and log10 in much of school science. The kernel has no
+  // ambiguous `log` either (only `ln` / `log10`), so `\log` must name its base;
+  // see `parseLog`.
+};
+
+/** Bases accepted for `\log_{b}`, mapped to the kernel function. */
+const LOG_BASES: Readonly<Record<string, string>> = {
+  "10": "log10",
+  e: "ln",
 };
 
 /** Constructs that have no Cetus equivalent, with their user-facing category. */
@@ -373,6 +390,9 @@ class Parser {
     if (name === "sqrt") {
       return this.parseSqrt();
     }
+    if (name === "log") {
+      return this.parseLog();
+    }
     const fn = FUNCTIONS[name];
     if (fn !== undefined) {
       return this.parseFunction(fn, name);
@@ -414,6 +434,39 @@ class Parser {
       return `sqrt(${argument})`;
     }
     return `(${argument})^(1/(${index}))`;
+  }
+
+  /**
+   * `\log` must carry an explicit base: `\log_{10}` → log10, `\log_e` → ln.
+   * A bare `\log` is `log-base`; any other base is `log-base-unsupported`
+   * (detail = the base). Neither is guessed.
+   */
+  private parseLog(): string {
+    this.skipTrivia();
+    if (this.peek() !== "_") {
+      this.fail("log-base");
+    }
+    this.index += 1;
+    this.skipWhitespace();
+    let base: string;
+    if (this.peek() === "{") {
+      base = this.readRawGroup().replace(/\s+/g, "");
+    } else {
+      const character = this.peek();
+      if (character === null) {
+        this.fail("log-base");
+      }
+      // An unbraced subscript is a single token in LaTeX: `\log_10` is base 1.
+      base = this.advance();
+    }
+    if (base === "") {
+      this.fail("log-base");
+    }
+    const fn = LOG_BASES[base];
+    if (fn === undefined) {
+      this.fail("log-base-unsupported", base);
+    }
+    return this.parseFunction(fn, "log");
   }
 
   private parseFunction(fn: string, command: string): string {

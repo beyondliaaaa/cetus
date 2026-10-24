@@ -1,6 +1,6 @@
 [package]
 name = "cetus-lesson"
-description = "Teaching layer: lesson schema, observation generation, checkers"
+description = "Teaching layer: lesson schema, model patches, static checks"
 version.workspace = true
 edition.workspace = true
 rust-version.workspace = true
@@ -11,4 +11,9 @@ repository.workspace = true
 workspace = true
 
 [dependencies]
-
+cetus-compile.workspace = true
+cetus-model.workspace = true
+indexmap.workspace = true
+serde.workspace = true
+serde_yaml_ng.workspace = true
+thiserror.workspace = true

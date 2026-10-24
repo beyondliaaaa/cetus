@@ -177,6 +177,7 @@ dependencies = [
  "cetus-model",
  "cetus-sd",
  "cetus-units",
+ "cetus-verify",
  "clap",
  "serde_json",
 ]
@@ -230,6 +231,14 @@ dependencies = [
 [[package]]
 name = "cetus-lesson"
 version = "0.0.0"
+dependencies = [
+ "cetus-compile",
+ "cetus-model",
+ "indexmap",
+ "serde",
+ "serde_yaml_ng",
+ "thiserror",
+]
 
 [[package]]
 name = "cetus-math"
@@ -304,6 +313,15 @@ dependencies = [
 [[package]]
 name = "cetus-verify"
 version = "0.0.0"
+dependencies = [
+ "cetus-compile",
+ "cetus-lesson",
+ "cetus-model",
+ "cetus-testkit",
+ "serde_json",
+ "serde_yaml_ng",
+ "thiserror",
+]
 
 [[package]]
 name = "cetus-wasm"

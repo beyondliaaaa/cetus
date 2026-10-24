@@ -38,6 +38,19 @@ WASM_OPT="${WASM_OPT:-wasm-opt}"
 # Must match the binaryen release installed in .github/workflows/ci.yml.
 WASM_OPT_VERSION="123"
 
+# rustup installs its proxies in ~/.cargo/bin but only interactive login shells
+# source ~/.cargo/env. Fall back to the default location so `npm run dev` works
+# from IDEs and non-login shells too.
+if ! command -v "$CARGO" >/dev/null 2>&1; then
+  if [[ -x "$HOME/.cargo/bin/cargo" ]]; then
+    CARGO="$HOME/.cargo/bin/cargo"
+  else
+    echo "error: cargo not found on PATH (install Rust via rustup)" >&2
+    echo "       or run: export PATH=\"\$HOME/.cargo/bin:\$PATH\"" >&2
+    exit 2
+  fi
+fi
+
 if ! command -v "$WASM_BINDGEN" >/dev/null 2>&1; then
   echo "error: wasm-bindgen not found on PATH (install the CLI matching the crate version)" >&2
   exit 2

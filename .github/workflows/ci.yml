@@ -76,8 +76,15 @@ jobs:
       - name: Compare native and wasm digests
         run: ./scripts/check-cross-target.sh
 
+      # M2 exit criterion "10 万步运行时 UI 不卡顿": worker throughput for
+      # 100,000 RK4 steps plus probe reads, through the browser-facing API.
+      # Reuses the nodejs bundle the step above built. Loose budget: it
+      # catches order-of-magnitude regressions on shared runners.
+      - name: wasm benchmark (100,000 steps)
+        run: node scripts/bench-wasm.cjs target/wasm-pkg/nodejs/cetus.js
+
   web:
-    name: Web (typecheck, test, build)
+    name: Web (typecheck, test, build, e2e)
     runs-on: ubuntu-latest
     env:
       # .npmrc points at npmmirror for collaborators in mainland China; CI
@@ -131,6 +138,24 @@ jobs:
 
       - name: Build web app
         run: npm run build --workspace @cetus/web
+
+      # End-to-end tests of the M2 exit criteria against the production build
+      # (apps/web/e2e). npm ci installs the test runner but not its browsers.
+      - name: Install Playwright browsers
+        run: npx playwright install --with-deps chromium
+
+      - name: End-to-end tests
+        run: npm run test:e2e --workspace @cetus/web
+
+      - name: Upload Playwright report
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: playwright-report
+          path: |
+            apps/web/playwright-report
+            apps/web/test-results
+          retention-days: 14
 
   assets:
     name: Asset licence records (P14)

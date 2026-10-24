@@ -29,3 +29,7 @@ apps/web/src/wasm/generated/
 
 # Windows download metadata
 *:Zone.Identifier
+
+# Playwright
+apps/web/playwright-report/
+apps/web/test-results/

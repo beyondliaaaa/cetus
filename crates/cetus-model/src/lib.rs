@@ -71,6 +71,58 @@ pub enum ParadigmId {
     Data,
 }
 
+/// A front-end view kind a paradigm can render (K12).
+///
+/// The enum is the contract between the engine and the view registry in
+/// `apps/web`: a paradigm declares what it can produce, and the front-end maps
+/// each kind to a component. M2 only declares the kinds the shipped paradigms
+/// actually use; new paradigms add declarations rather than editing the engine.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub enum ViewKind {
+    /// A time series chart.
+    Series,
+    /// A phase portrait / state-space plot.
+    Phase,
+    /// A scalar field on a 2D grid (heat map).
+    Field2d,
+    /// A vector field on a 2D grid.
+    VectorField,
+    /// A node-link network.
+    Network,
+    /// A particle cloud.
+    Particles,
+    /// A 2D scene with sprites and geometry.
+    Scene2d,
+    /// A tree or hierarchy.
+    Tree,
+    /// A matrix or table view.
+    Matrix,
+    /// A Bloch sphere for quantum states.
+    BlochSphere,
+    /// A quantum circuit diagram.
+    Circuit,
+    /// An automaton state diagram.
+    Automaton,
+    /// An execution trace / timeline.
+    Trace,
+}
+
+impl ParadigmId {
+    /// View kinds this paradigm can render.
+    ///
+    /// M2 only declares views for system dynamics and discrete maps; every
+    /// other paradigm returns an empty slice rather than guessing (§5.13,
+    /// ADR-0004 K12).
+    #[must_use]
+    pub fn views(self) -> &'static [ViewKind] {
+        match self {
+            Self::Sd | Self::DiscreteMap => &[ViewKind::Series, ViewKind::Phase],
+            _ => &[],
+        }
+    }
+}
+
 /// Time model (K2).
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Default, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case")]

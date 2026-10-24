@@ -310,10 +310,14 @@ name = "cetus-wasm"
 version = "0.0.0"
 dependencies = [
  "cetus-compile",
+ "cetus-expr",
  "cetus-kernel",
  "cetus-math",
  "cetus-model",
  "cetus-sd",
+ "cetus-units",
+ "serde",
+ "serde_json",
  "wasm-bindgen",
 ]
 

@@ -19,4 +19,8 @@ cetus-compile = { workspace = true }
 cetus-sd = { workspace = true }
 cetus-math = { workspace = true }
 cetus-kernel = { workspace = true }
+cetus-expr = { workspace = true }
+cetus-units = { workspace = true }
+serde = { workspace = true }
+serde_json = { workspace = true }
 wasm-bindgen = { workspace = true }

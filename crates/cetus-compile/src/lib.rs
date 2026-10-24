@@ -684,7 +684,9 @@ pub fn compile_model(model: &Model) -> Result<CompiledPlan, Diagnostics> {
         ) else {
             continue;
         };
-        if typed.ty.dim() != Some(&expected) {
+        // §5.1: a bare `0` is dimension-polymorphic, so a zero flow rate is
+        // valid for any stock dimension.
+        if typed.ty.dim() != Some(&expected) && !typed.zero_literal {
             diagnostics.push(Diagnostic::error(
                 "E1203",
                 format!(
@@ -950,6 +952,80 @@ impl NameResolver for ModelResolver<'_> {
     fn resolve_table(&self, name: &str) -> Option<TableSignature> {
         self.tables.iter().find(|table| table.name == name).cloned()
     }
+}
+
+/// Resolves expression names against a compiled plan.
+///
+/// Every state-layout slot (stocks, parameters and auxiliaries) resolves to a
+/// variable carrying that slot's compiled dimension. Lookup tables are not
+/// resolved: [`CompiledTable`] stores only SI sample points and does not carry
+/// the axis dimensions a [`TableSignature`] needs, so `resolve_table` returns
+/// `None` and an ad-hoc `lookup(...)` reports E2105.
+#[derive(Debug, Clone, Copy)]
+pub struct PlanResolver<'a> {
+    plan: &'a CompiledPlan,
+}
+
+impl<'a> PlanResolver<'a> {
+    /// Creates a resolver over `plan`.
+    #[must_use]
+    pub fn new(plan: &'a CompiledPlan) -> Self {
+        Self { plan }
+    }
+}
+
+impl NameResolver for PlanResolver<'_> {
+    fn resolve(&self, name: &str) -> Option<Resolved> {
+        let index = self
+            .plan
+            .layout
+            .slots
+            .iter()
+            .position(|slot| slot.name == name)?;
+        let slot = self.plan.layout.slots.get(index)?;
+        Some(Resolved::Variable {
+            id: u32::try_from(index).unwrap_or(u32::MAX),
+            ty: Type::scalar(slot.dim.clone()),
+        })
+    }
+
+    fn resolve_table(&self, _name: &str) -> Option<TableSignature> {
+        None
+    }
+}
+
+/// Parses and type-checks an expression against a compiled plan.
+///
+/// This is the ad-hoc counterpart to model compilation: the returned
+/// [`cetus_expr::TypedExpr`] can be compiled with [`compile`] and evaluated
+/// against a running simulation.
+///
+/// # Errors
+/// Returns [`cetus_expr::ExprError`] with a diagnostic code and byte span.
+pub fn parse_in_plan(
+    source: &str,
+    plan: &CompiledPlan,
+) -> Result<cetus_expr::TypedExpr, cetus_expr::ExprError> {
+    parse_and_check(source, &PlanResolver::new(plan), &UnitRegistry::new())
+}
+
+/// Suggests a display unit for `dim`.
+///
+/// The search is deterministic and follows declaration order: the first state
+/// slot with the dimension wins, then the first observable. Dimensionless
+/// quantities map to `"1"`; dimensions that appear nowhere return `None`.
+#[must_use]
+pub fn suggest_unit(plan: &CompiledPlan, dim: &Dim) -> Option<String> {
+    if dim.is_dimensionless() {
+        return Some("1".to_owned());
+    }
+    if let Some(slot) = plan.layout.slots.iter().find(|slot| &slot.dim == dim) {
+        return Some(slot.unit.symbol().to_owned());
+    }
+    plan.observables
+        .iter()
+        .find(|observable| observable.unit.dim() == dim)
+        .map(|observable| observable.unit.symbol().to_owned())
 }
 
 fn parse_checked(
@@ -1308,6 +1384,55 @@ mod tests {
         let model = Model::from_yaml(&yaml).expect("parse");
         let diagnostics = compile_model(&model).expect_err("must fail");
         assert!(diagnostics.iter().any(|d| d.code == "E2101"));
+    }
+
+    const SIR_YAML: &str = r#"
+schema: cetus.model/0.1
+id: bio.epidemic-sir
+version: 1.0.0
+title: { zh-CN: "SIR", en: "SIR" }
+tier: empirical
+paradigms: [sd]
+time: { unit: day, dt: 0.05, horizon: 160, integrator: rk4 }
+parameters:
+  transmission: { unit: "1/(person*day)", value: 0.0002, range: [0, 0.01], source: "param:TODO-expert" }
+  recovery: { unit: "1/day", value: 0.1, range: [0, 1], source: "param:TODO-expert" }
+stocks:
+  susceptible: { unit: person, initial: "990", bounds: { min: 0 } }
+  infectious: { unit: person, initial: "10", bounds: { min: 0 } }
+  recovered: { unit: person, initial: "0", bounds: { min: 0 } }
+flows:
+  infection: { from: susceptible, to: infectious, unit: "person/day", eq: "transmission * susceptible * infectious" }
+  recovery: { from: infectious, to: recovered, unit: "person/day", eq: "recovery * infectious" }
+observables:
+  infectious: { unit: person, eq: "infectious" }
+  total: { unit: person, eq: "susceptible + infectious + recovered" }
+"#;
+
+    #[test]
+    fn parses_ad_hoc_expressions_against_a_plan() {
+        let plan = compile_model(&Model::from_yaml(SIR_YAML).expect("parse")).expect("compile");
+        let typed = parse_in_plan("transmission * susceptible * infectious", &plan).expect("parse");
+        let person_day = UnitRegistry::new().parse("person/day").expect("unit");
+        assert_eq!(typed.ty.dim(), Some(person_day.dim()));
+
+        let error = parse_in_plan("2[m] + 3[s]", &plan).expect_err("dimension mismatch");
+        assert_eq!(error.code(), "E1201");
+    }
+
+    #[test]
+    fn suggests_units_in_declaration_order() {
+        let plan = compile_model(&solar_model()).expect("compile");
+        let watt = UnitRegistry::new().parse("W").expect("unit");
+        assert_eq!(suggest_unit(&plan, watt.dim()).as_deref(), Some("W"));
+        assert_eq!(
+            suggest_unit(&plan, &Dim::dimensionless()).as_deref(),
+            Some("1")
+        );
+
+        let sir = compile_model(&Model::from_yaml(SIR_YAML).expect("parse")).expect("compile");
+        let person = UnitRegistry::new().parse("person").expect("unit");
+        assert_eq!(suggest_unit(&sir, person.dim()).as_deref(), Some("person"));
     }
 
     #[test]

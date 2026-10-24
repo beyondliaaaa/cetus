@@ -6,6 +6,15 @@ import react from "@vitejs/plugin-react";
 // modern baseline: the game targets mid-range Android browsers (§10.5).
 export default defineConfig({
   plugins: [react()],
+  server: {
+    fs: {
+      // The model catalogue imports content/modules/**/module.yaml from the
+      // repository root, two levels above this Vite project. Allowing that
+      // root keeps both the dev server and raw `?raw` imports working without
+      // copying content into apps/web.
+      allow: ["../.."],
+    },
+  },
   build: {
     target: "es2022",
     sourcemap: true,
@@ -15,8 +24,5 @@ export default defineConfig({
   },
   test: {
     environment: "node",
-    // No web tests yet (lesson-runtime and UI tests arrive in M2/M3). Without
-    // this, `vitest run` exits non-zero on "no test files" and `npm test` fails.
-    passWithNoTests: true,
   },
 });

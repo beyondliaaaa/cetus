@@ -1,103 +1,147 @@
-import { useEffect, useState } from "react";
-import { createSimWorker } from "@cetus/sim-client";
-import { translate, type Locale, type MessageKey } from "./i18n/messages";
-
-type DigestState =
-  | { status: "loading" }
-  | { status: "ready"; digest: string; version: string }
-  | { status: "error"; message: string };
+import { useTranslation } from "react-i18next";
+import { DiagnosticsPanel } from "./components/DiagnosticsPanel";
+import { Header, modelTitle } from "./components/Header";
+import { ModelInspector } from "./components/ModelInspector";
+import { ParameterRail } from "./components/ParameterRail";
+import { RunControls } from "./components/RunControls";
+import { SnapshotPanel } from "./components/SnapshotPanel";
+import { StartupState } from "./components/StartupState";
+import { useSimWorkbench } from "./hooks/useSimWorkbench";
+import { toggleLocale } from "./i18n";
+import { normalizeLocale } from "./i18n/messages";
+import { ViewHost } from "./views/ViewHost";
 
 export function App(): React.JSX.Element {
-  const [locale, setLocale] = useState<Locale>("zh-CN");
-  const t = (key: MessageKey): string => translate(locale, key);
-
-  const [state, setState] = useState<DigestState>({ status: "loading" });
-
-  useEffect(() => {
-    const client = createSimWorker(
-      () => new Worker(new URL("./worker/sim.worker.ts", import.meta.url), { type: "module" }),
-    );
-    let cancelled = false;
-    void (async () => {
-      try {
-        const [digest, version] = await Promise.all([
-          client.api.helloDigest(),
-          client.api.kernelVersion(),
-        ]);
-        if (!cancelled) {
-          setState({ status: "ready", digest, version });
-        }
-      } catch (error) {
-        if (!cancelled) {
-          setState({
-            status: "error",
-            message: error instanceof Error ? error.message : String(error),
-          });
-        }
-      }
-    })();
-    return () => {
-      cancelled = true;
-      client.dispose();
-    };
-  }, []);
+  const { t, i18n } = useTranslation();
+  const workbench = useSimWorkbench();
+  const locale = normalizeLocale(i18n.resolvedLanguage ?? i18n.language);
+  const activeMeta = workbench.active?.meta ?? null;
+  const frame = workbench.frame;
+  const selectedModel =
+    workbench.models.find((model) => model.key === workbench.selectedKey) ?? null;
+  const visibleDiagnostics = workbench.runtimeError
+    ? [workbench.runtimeError, ...workbench.diagnostics]
+    : workbench.diagnostics;
 
   return (
-    <main className="shell">
+    <div className="app-shell">
       <div className="stars" aria-hidden="true" />
 
-      <header className="header">
-        <p className="eyebrow">CETUS · M0</p>
-        <h1>{t("app.title")}</h1>
-        <p className="tagline">{t("app.tagline")}</p>
-        <button
-          type="button"
-          className="lang"
-          onClick={() => {
-            setLocale((current) => (current === "zh-CN" ? "en" : "zh-CN"));
-          }}
-        >
-          {t("lang.switch")}
-        </button>
-      </header>
+      <Header
+        models={workbench.models}
+        selectedKey={workbench.selectedKey}
+        onSelect={workbench.selectModel}
+        locale={locale}
+        onToggleLocale={toggleLocale}
+        kernel={workbench.kernel}
+        ready={workbench.boot.status === "ready"}
+      />
 
-      <section className="card" aria-labelledby="m0-title">
-        <h2 id="m0-title">{t("app.m0.title")}</h2>
-        <p>{t("app.m0.body")}</p>
+      <main className="stage">
+        {workbench.boot.status === "booting" && (
+          <StartupState
+            variant="boot"
+            done={workbench.boot.done}
+            total={workbench.boot.total}
+          />
+        )}
 
-        <dl className="facts">
-          <div>
-            <dt>{t("app.digest.label")}</dt>
-            <dd>
-              {state.status === "loading" && <span className="muted">{t("app.digest.loading")}</span>}
-              {state.status === "error" && (
-                <span className="error" role="alert">
-                  {t("app.digest.error")} <code>{state.message}</code>
-                </span>
+        {workbench.boot.status === "error" && (
+          <div className="stack">
+            <section className="panel">
+              <p className="eyebrow">{t("startup.errorTitle")}</p>
+              <h2>{t("startup.errorTitle")}</h2>
+              <p className="panel__body">{t("startup.errorBody")}</p>
+              {workbench.boot.diagnostics.length === 0 && (
+                <p className="notice notice--error" role="alert">
+                  {t("error.noModels")}
+                </p>
               )}
-              {state.status === "ready" && <code className="digest">{state.digest}</code>}
-            </dd>
+            </section>
+            <DiagnosticsPanel diagnostics={workbench.boot.diagnostics} hash="" />
           </div>
-          {state.status === "ready" && (
-            <div>
-              <dt>{t("app.version.label")}</dt>
-              <dd>
-                <code>{state.version}</code>
-              </dd>
+        )}
+
+        {workbench.boot.status === "ready" &&
+          (activeMeta && frame ? (
+            <>
+              <RunControls
+                meta={activeMeta}
+                frame={frame}
+                playing={workbench.playing}
+                speed={workbench.speed}
+                onTogglePlay={workbench.togglePlaying}
+                onStep={workbench.stepOnce}
+                onReset={workbench.resetSession}
+                onSpeedChange={workbench.setSpeed}
+              />
+
+              <div className="workbench-grid">
+                <ViewHost
+                  key={activeMeta.id}
+                  meta={activeMeta}
+                  frame={frame}
+                  revision={workbench.revision}
+                  seriesRef={workbench.seriesRef}
+                />
+                <ParameterRail
+                  key={`params-${activeMeta.id}`}
+                  meta={activeMeta}
+                  values={workbench.paramValues}
+                  disabled={workbench.sessionLoading}
+                  onCommit={workbench.setParamValue}
+                />
+                <SnapshotPanel
+                  meta={activeMeta}
+                  record={workbench.snapshotRecord}
+                  notice={workbench.snapshotNotice}
+                  onSaveMemory={workbench.saveToMemory}
+                  onDownload={workbench.downloadSnapshot}
+                  onRestoreMemory={workbench.restoreFromMemory}
+                  onRestoreFile={workbench.restoreFromFile}
+                />
+                <DiagnosticsPanel
+                  diagnostics={visibleDiagnostics}
+                  hash={frame.hash}
+                />
+                <ModelInspector
+                  key={`inspector-${activeMeta.id}`}
+                  meta={activeMeta}
+                  sourceYaml={selectedModel?.yaml ?? ""}
+                  disabled={workbench.sessionLoading}
+                  parseExpression={workbench.parseExpression}
+                  queryValue={workbench.queryValue}
+                  applyEdit={workbench.applyEdit}
+                />
+              </div>
+            </>
+          ) : workbench.sessionLoading ? (
+            <StartupState
+              variant="session"
+              modelName={
+                selectedModel ? modelTitle(selectedModel, locale) : (workbench.selectedKey ?? "")
+              }
+            />
+          ) : (
+            <div className="stack">
+              <section className="panel">
+                <p className="eyebrow">{t("startup.diagnostics")}</p>
+                <h2>{t("error.loadModel")}</h2>
+                {workbench.diagnostics.length === 0 && (
+                  <p className="notice notice--error" role="alert">
+                    {t("error.loadModel")}
+                  </p>
+                )}
+              </section>
+              <DiagnosticsPanel diagnostics={visibleDiagnostics} hash="" />
             </div>
-          )}
-        </dl>
-      </section>
+          ))}
+      </main>
 
-      <section className="card card--quiet" aria-labelledby="next-title">
-        <h2 id="next-title">{t("app.next.title")}</h2>
-        <p>{t("app.next.body")}</p>
-      </section>
-
-      <footer className="footer">
-        <span>Cetus · 鲸鱼娘历险记</span>
-        <span>MIT OR Apache-2.0 · content CC BY-SA 4.0</span>
+      <footer className="site-footer">
+        <span>{t("footer.tagline")}</span>
+        <span>{t("footer.license")}</span>
       </footer>
-    </main>
+    </div>
   );
 }

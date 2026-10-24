@@ -55,8 +55,15 @@
   保留原仿真并显示可读诊断。
 - 真机中端安卓性能尚未补测，已知限制见 [`docs/STATUS.md`](docs/STATUS.md)。
 
-下一个里程碑是 **M3 — 引导探究与验收 V0–V4**（课程 schema、任务运行时、
-实验台仪器与对照图、`cetus verify`）。里程碑与退出标准见指南 §12。
+**M3 — 引导探究与验收 V0–V4（进行中）**
+
+- `cetus-lesson`：`cetus.lesson/0.1` 严格 schema、模型路径补丁、V1 静态检查
+  （`E2101` / `E5203` / `E5401`）。
+- `cetus-verify`：累积 V0/V1，模块与课程两种目标，Markdown/JSON 报告。
+- `cetus verify <module|lesson> --level V0|V1 --report md|json`。
+- `content/lessons/` 下已有一节正例课程与一节故意写错的反例课程。
+- 观测生成、检查器、`lesson-runtime`、实验台 UI 与 V2–V4 尚未完成；
+  详见 [`docs/STATUS.md`](docs/STATUS.md)。
 
 ## 快速开始
 

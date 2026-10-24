@@ -32,12 +32,14 @@
 - **机器可读输出优先**：所有 CLI 命令支持 `--json`；错误使用 §5.4 的诊断码。这样其他代理才能自动修复。
 - **文档与代码同步**：改了 schema 或公共 API，必须同步改本文档和 `docs/` 下的对应页面。
 
-### 0.3 当前状态与开工顺序（2026-10-23）
+### 0.3 当前状态与开工顺序（2026-10-24）
 
 - **已完成：M0 基础设施、M1 内核 v0、M2 网页实验台 v0**（证据与已知限制见
   [`docs/STATUS.md`](STATUS.md)）。
-- **下一个里程碑：M3 引导探究与验收 V0–V4**（§12 M3）。`dopri5` 与 `ros2`
-  积分器、教学层、验收框架按 §12 的顺序在 M1.5–M3 补齐。
+- **进行中：M3 引导探究与验收 V0–V4**（§12 M3）。切片 1（`cetus.lesson/0.1`
+  schema、V1 静态检查、`cetus verify` 的 V0/V1 与 Markdown/JSON 报告）已完成；
+  观测生成、检查器、`lesson-runtime`、实验台 UI 与 V2–V4 尚未完成。
+  `dopri5` 与 `ros2` 积分器、教学层、验收框架按 §12 的顺序在 M1.5–M3 补齐。
 - M2 的已知限制：§5.13 的 `runAnalysis` / `enqueueAction` / `exprEquiv` /
   `checkDiscrimination` 尚未实现（随 M3/M8）；方程编辑会丢失 YAML 注释并在成功
   后重置仿真；MathLive 只支持算术子集；真机中端安卓性能待补测；当前只有深色主题。
@@ -2078,6 +2080,11 @@ M12 公测准备          持续
 ### M3 引导探究与验收 V0–V4（5–7 周）
 
 **目标**：课程系统可以运行，并能自动判断一节课的设计是否合格。
+
+状态：**进行中（2026-10-24）**。切片 1 已完成：`cetus.lesson/0.1` schema、模型路径
+补丁、V1 静态检查（`E5203`/`E5401`）、`cetus-verify` 的 V0/V1、`cetus verify`
+的 Markdown/JSON 报告，以及正例/反例课程 fixture。其余任务未完成，证据见
+[`docs/STATUS.md`](STATUS.md)。
 
 任务：
 - [ ] `cetus-lesson`：`cetus.lesson/0.1` schema；真模型覆盖；仪器与观测生成（噪声子流）；洞的应用；检查器（`expr_equiv`、`param_within`、`abs_tol`、`trajectory_fit`、`structure`）；误解补丁。

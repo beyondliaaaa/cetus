@@ -1,6 +1,6 @@
 # 项目状态
 
-> 更新：2026-10-23 · 对应指南 v0.5.2
+> 更新：2026-10-24 · 对应指南 v0.5.2
 
 ## 已完成
 
@@ -9,7 +9,7 @@
 | M0 基础设施 | 完成 |
 | M1 内核 v0（量纲、表达式、SD） | 完成（`dopri5`/`ros2` 推迟到 M1.5/M6；核心抽象 K5/K6/K8–K12 的接口推迟到首次使用它们的里程碑，见 ADR-0004） |
 | M2 网页实验台 v0 | 完成（真机性能待补测，见「M2 已知限制」） |
-| M3 引导探究与验收 V0–V4 | 未开始 |
+| M3 引导探究与验收 V0–V4 | 进行中（切片 1 完成：lesson schema + verify V0/V1 + CLI） |
 
 ## M2 交付
 
@@ -74,6 +74,37 @@
 9. **M1 遗留**：仅 `euler`/`rk4`；`delay1`/`delay3`/`smooth` 求值为 0；
    不变量无容差；YAML 字段级行号仍待 serde span 支持；`content/` 仍暂驻引擎仓库。
 
+## M3 切片 1 交付（2026-10-24）
+
+- **`cetus-lesson`**：`cetus.lesson/0.1` 严格 schema（未知字段拒绝）；模型路径补丁
+  （`parameters.*.value`、`stocks.*.initial`、`auxiliaries.*.eq`、`flows.*.eq`、
+  `observables.*.eq`）；真模型覆盖；V1 静态检查（`E2101` / `E5203` / `E5401`），
+  覆盖洞目标、误解补丁、L0–L3、教学任务的 `holds` / `setup_space` / 变式。
+- **`cetus-verify`**：累积等级 `V0` → `V1`；模块与课程两种目标；Markdown 与 JSON
+  报告；等级未实现时明确拒绝（不伪造通过）。
+- **`cetus verify <path> --level V0|V1 --report md|json`**：正例退出 0，反例退出 1，
+  未实现等级退出 2。
+- **课程 fixture**：`content/lessons/energy.battery-night/`（正例）与
+  `energy.battery-night-broken/`（E5203 + E5401 反例）。
+- **诊断页**：`docs/errors/E5203.md`、`docs/errors/E5401.md`。
+- **测试**：`cetus-lesson` 25、`cetus-verify` 10、`cetus-cli` 5。
+
+### M3 切片 1 已知限制
+
+1. **V1 的内容库引用尚未解析**：模块编译只检查 `fixed` 参数是否声明了 `source`，
+   尚未到 `content/params/`、`content/sources/` 中核对来源是否存在（指南 §8.2）。
+2. **`cetus verify` 只实现 V0/V1**：V2–V4（扫描、步长收敛、确定性、行为测试、
+   变异杀伤率、判别实验、噪声稳健）尚未实现。
+3. **课程 schema 尚无运行时**：`layers` 与 `teaching` 可解析并通过 V1，但检查器
+   求值、观测生成、`lesson-runtime`、实验台 UI 尚未实现。
+4. **`Check.rel_tol` 的字段形状**：指南列出了 `rel_tol` 类型但未给示例，当前按
+   `{ kind: rel_tol, tol: <string> }` 接收。
+5. **V1 不校验仪器时间与噪声参数**：`instruments[].every`、
+   `setup_space.duration.max` 的单位，以及 `noise.sigma` / `resolution` 的正值，
+   留到观测生成切片一并实现。
+6. **`truth.dataset` 只做 schema 接受**：尚未校验 `content/datasets/` 中的条目、
+   来源、许可证与预处理脚本；数据集真值是 V3 数据集完整性检查的范围。
+
 ## M1 退出标准对照
 
 | 退出标准（§12 M1） | 证据 |
@@ -101,12 +132,16 @@ CI 检查 native、wasm 与该文件三者一致（ADR-0001「黄金哈希」）
   MathLive 及其 CSS 是独立的按需 chunk（JS 823 KB / gzip 229 KB），只在用户展开
   公式输入时加载。
 
-## 下一步：M3 引导探究与验收 V0–V4（§12 M3）
+## 下一步：M3 剩余工作（§12 M3）
 
-1. `cetus-lesson`：`cetus.lesson/0.1` schema、仪器与观测生成、检查器、误解补丁；
+切片 1（schema + V0/V1 + CLI）已完成；剩余：
+
+1. `cetus-lesson`：仪器与观测生成（噪声子流）、洞的应用、检查器
+   （`expr_equiv`、`param_within`、`abs_tol`、`trajectory_fit`、`structure`）；
 2. `packages/lesson-runtime`：任务状态机、提示阶梯、反例驱动提示；
 3. 实验台 UI：仪器面板、观测数据表、预测/对照图、任务列表；
-4. `cetus-verify`：V0–V4 与 Markdown/JSON 报告；
+4. `cetus-verify`：V2（扫描、步长收敛、确定性）、V3（行为测试）、V4（可解性、
+   区分力、变异测试、泄露检查、噪声稳健）；
 5. 分析层 `ensemble` / `fit`，定稿 K9 `Decision`；
 6. 表示层 `layers`、L0/L1 检查器、因果箭头画布；
 7. 教学任务与 `checkDiscrimination` WASM 接口、判别实验台；
@@ -119,6 +154,8 @@ export PATH="$HOME/.cargo/bin:$PATH"
 cargo fmt --all -- --check
 cargo clippy --workspace --all-targets -- -D warnings
 cargo test --workspace
+cargo run -p cetus-cli -- verify content/lessons/energy.battery-night/lesson.yaml --level V1 --report md
+cargo run -p cetus-cli -- verify content/lessons/energy.battery-night-broken/lesson.yaml --level V1 --report json  # 预期退出 1：E5203 + E5401
 ./scripts/check-clippy-rules.sh      # clippy.toml 的 60 条 std 规则确实命中
 ./scripts/check-no-os-rng.sh         # cetus-wasm / cetus-cli 的产物依赖不含 getrandom
 ./scripts/check-cross-target.sh      # native = wasm（一次跑完与分段推进）= golden/hashes.txt

@@ -33,7 +33,9 @@ pub mod lexer;
 pub mod parser;
 pub mod typecheck;
 
-pub use equiv::{DomainVar, EquivOptions, EquivOutcome, equivalent};
+pub use equiv::{
+    DomainVar, EquivOptions, EquivOutcome, TableLookup, equivalent, equivalent_with_tables,
+};
 pub use eval::{CompiledExpr, EvalContext, Instr, SlotContext, compile};
 pub use parser::{BinOp, Expr, ExprKind, ParseError, Span, UnOp, parse};
 pub use typecheck::{

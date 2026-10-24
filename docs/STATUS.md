@@ -71,8 +71,9 @@
    JSON 序列化是主要增量，仍有充足余量。
 8. **浏览器解析 YAML**：实验台在浏览器中解析模型 YAML（含 `modelSource.ts` 的
    正则读取），这是 ADR-0002 的有期限例外，至 M5，见 ADR-0005。
-9. **M1 遗留**：仅 `euler`/`rk4`；`delay1`/`delay3`/`smooth` 求值为 0；
-   不变量无容差；YAML 字段级行号仍待 serde span 支持；`content/` 仍暂驻引擎仓库。
+9. **M1 遗留**：仅 `euler`/`rk4`；`delay1`/`delay3`/`smooth` 在编译期报
+   E1901（延迟状态槽待 M4，不再静默求值为 0）；不变量无容差；YAML 字段级行号仍待
+   serde span 支持；`content/` 仍暂驻引擎仓库。
 
 ## M3 切片 1 交付（2026-10-24）
 
@@ -104,6 +105,25 @@
    留到观测生成切片一并实现。
 6. **`truth.dataset` 只做 schema 接受**：尚未校验 `content/datasets/` 中的条目、
    来源、许可证与预处理脚本；数据集真值是 V3 数据集完整性检查的范围。
+7. **K13 尺度推导未实现**：`EquivOptions.scale` 需要调用方从目标变量的 `scale:`
+   取值；未提供时使用纯相对误差。`SlotInfo.scale` 已改为 `Option<f64>`，不再默认
+   `1.0`；从 `initial`/`range` 推断尺度仍待 M1.5。
+
+### M3 评审修复（2026-10-24）
+
+- **`delay1` / `delay3` / `smooth` 不再静默求值为 0**：编译期报 `E1901`；
+  `E3101` 的帮助文本与 `docs/errors/E3101.md` 不再推荐这些尚未实现的函数。
+- **`expr_equiv` 采样修正**：
+  - `time` 必须通过 `EquivOptions::time` 给出范围并逐点采样，不再固定为 0；
+  - `dt` 必须通过 `EquivOptions::dt` 给出值；
+  - 未覆盖的变量返回 `IncompleteDomain`，不再按 0 代入；
+  - `lookup` 必须提供表数据（`TableLookup` / `equivalent_with_tables`），
+    缺失时返回 `Undefined`，不再按 0 代入；
+  - 相对误差分母改为 `max(|l|, |r|, scale)`，`scale` 来自输出量的 K13 量级；
+    未声明时退化为纯相对误差，去掉固定的 `1.0` 下限；
+  - 有状态函数在 `equivalent` 中直接拒绝比较。
+- 新增 9 个等价性回归测试与 2 个编译期回归测试；`cetus-expr` 的等价性测试从
+  3 个增至 12 个。
 
 ## M1 退出标准对照
 

@@ -17,6 +17,8 @@ use cetus_sd::SdSubsystem;
 use cetus_units::{Dim, Unit, UnitRegistry};
 use clap::{Parser, Subcommand};
 
+mod verify;
+
 #[derive(Debug, Parser)]
 #[command(name = "cetus", version, about = "Cetus engine CLI (鲸鱼娘历险记)")]
 struct Cli {
@@ -36,6 +38,17 @@ enum Command {
     Check {
         /// Path to `module.yaml`.
         path: PathBuf,
+    },
+    /// Verify a module or lesson (V0 + V1 in this build).
+    Verify {
+        /// Path to `module.yaml` or `lesson.yaml`.
+        path: PathBuf,
+        /// Verification level: V0 or V1.
+        #[arg(long, default_value = "V1")]
+        level: String,
+        /// Report format(s), comma separated: md, json.
+        #[arg(long, default_value = "md")]
+        report: String,
     },
     /// Run a model and export probe data as CSV.
     Run {
@@ -89,6 +102,11 @@ fn main() -> ExitCode {
     let result = match cli.command {
         Command::Hello => hello(cli.json),
         Command::Check { path } => check(&path, cli.json),
+        Command::Verify {
+            path,
+            level,
+            report,
+        } => verify::run(&path, &level, &report, cli.json),
         Command::Run {
             path,
             until,

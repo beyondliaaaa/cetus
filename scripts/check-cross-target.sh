@@ -2,7 +2,9 @@
 # Cross-target determinism check (P2, §5.12, skills/cetus-determinism §3.1).
 #
 # 1. Compares the M0 hello digest between native and wasm.
-# 2. Runs every sample model on both targets and compares the state hash.
+# 2. Runs every sample model on both targets and compares the state hash, in
+#    wasm both one-shot (run_model_digest) and through the workbench API in
+#    chunks (scripts/wasm-step-digest.cjs).
 # 3. Compares every hash against crates/cetus-testkit/golden/hashes.txt, so a
 #    change that moves native and wasm *together* (toolchain or dependency
 #    bump) also fails.
@@ -31,19 +33,19 @@ compare() {
   local label="$1" key="$2" native="$3" wasm="$4" expected
   expected="$(golden "$key")"
   if [[ -z "$expected" ]]; then
-    printf "FAIL %-24s no golden entry for %s in %s\n" "$label" "$key" "$GOLDEN_FILE" >&2
+    printf "FAIL %-34s no golden entry for %s in %s\n" "$label" "$key" "$GOLDEN_FILE" >&2
     printf "     native: %s\n     wasm:   %s\n" "$native" "$wasm" >&2
     failures=$((failures + 1))
   elif [[ "$native" != "$wasm" ]]; then
-    printf "FAIL %-24s native and wasm differ\n     native: %s\n     wasm:   %s\n" \
+    printf "FAIL %-34s native and wasm differ\n     native: %s\n     wasm:   %s\n" \
       "$label" "$native" "$wasm" >&2
     failures=$((failures + 1))
   elif [[ "$native" != "$expected" ]]; then
-    printf "FAIL %-24s both targets agree but differ from the golden\n     got:    %s\n     golden: %s\n" \
+    printf "FAIL %-34s both targets agree but differ from the golden\n     got:    %s\n     golden: %s\n" \
       "$label" "$native" "$expected" >&2
     failures=$((failures + 1))
   else
-    printf "OK   %-24s %s\n" "$label" "$native"
+    printf "OK   %-34s %s\n" "$label" "$native"
   fi
 }
 
@@ -68,7 +70,14 @@ const mod = require(process.argv[1]);
 const yaml = fs.readFileSync(process.argv[2], "utf8");
 process.stdout.write(mod.run_model_digest(yaml, 1));
 ' "$WASM_JS" "$model")"
-  compare "$(basename "$(dirname "$model")")" "$model" "$native_hash" "$wasm_hash"
+  name="$(basename "$(dirname "$model")")"
+  compare "$name" "$model" "$native_hash" "$wasm_hash"
+
+  # The workbench never calls run_model_digest: it drives compileModel/start/
+  # step in small chunks. That path must land on the same bits. 997 is prime,
+  # so chunk boundaries fall at varying offsets within each model's ticks.
+  wasm_step_hash="$(node "$ROOT/scripts/wasm-step-digest.cjs" "$WASM_JS" "$model" 997 1)"
+  compare "$name (wasm step)" "$model" "$native_hash" "$wasm_step_hash"
 done < <(find content/modules -name module.yaml | sort)
 
 if ((failures > 0)); then

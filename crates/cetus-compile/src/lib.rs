@@ -15,8 +15,8 @@ use std::collections::{BTreeMap, BTreeSet};
 use std::fmt::Write as _;
 
 use cetus_expr::{
-    CompiledExpr, DomainVar, EquivOptions, EquivOutcome, Instr, NameResolver, Resolved,
-    TableSignature, Type, compile, equivalent, parse_and_check,
+    Builtin, CompiledExpr, DomainVar, EquivOptions, EquivOutcome, Instr, NameResolver, Resolved,
+    TableSignature, Type, TypedExpr, TypedKind, compile, equivalent, parse_and_check,
 };
 use cetus_model::{InvariantKind, Model, ParadigmId, ParameterRole, TimeKind as ModelTimeKind};
 use cetus_units::{BaseDim, Dim, Unit, UnitRegistry};
@@ -164,8 +164,8 @@ pub struct SlotInfo {
     pub unit: Unit,
     /// Dimension (cached from `unit`).
     pub dim: Dim,
-    /// Typical magnitude in SI units (K13).
-    pub scale: f64,
+    /// Typical magnitude in SI units (K13); `None` means undeclared.
+    pub scale: Option<f64>,
 }
 
 /// State layout: stocks first, then parameters, then auxiliaries.
@@ -375,6 +375,16 @@ impl CompiledPlan {
     pub fn table(&self, name: &str) -> Option<&CompiledTable> {
         self.tables.iter().find(|table| table.name == name)
     }
+
+    /// K13 typical magnitude of a state slot by name, when declared.
+    #[must_use]
+    pub fn scale_of(&self, name: &str) -> Option<f64> {
+        self.layout
+            .slots
+            .iter()
+            .find(|slot| slot.name == name)
+            .and_then(|slot| slot.scale)
+    }
 }
 
 /// Compiles a model into a [`CompiledPlan`].
@@ -412,7 +422,7 @@ pub fn compile_model(model: &Model) -> Result<CompiledPlan, Diagnostics> {
             kind: SlotKind::Stock,
             dim: unit.dim().clone(),
             unit,
-            scale: spec.scale.unwrap_or(1.0),
+            scale: spec.scale,
         });
     }
     let stock_count = slots.len();
@@ -452,7 +462,7 @@ pub fn compile_model(model: &Model) -> Result<CompiledPlan, Diagnostics> {
             kind: SlotKind::Parameter,
             dim: unit.dim().clone(),
             unit,
-            scale: spec.scale.unwrap_or(1.0),
+            scale: spec.scale,
         });
     }
     let parameter_count = slots.len() - stock_count;
@@ -473,7 +483,7 @@ pub fn compile_model(model: &Model) -> Result<CompiledPlan, Diagnostics> {
             kind: SlotKind::Auxiliary,
             dim: unit.dim().clone(),
             unit,
-            scale: spec.scale.unwrap_or(1.0),
+            scale: spec.scale,
         });
     }
     let auxiliary_count = slots.len() - stock_count - parameter_count;
@@ -1018,7 +1028,19 @@ pub fn parse_in_plan(
     source: &str,
     plan: &CompiledPlan,
 ) -> Result<cetus_expr::TypedExpr, cetus_expr::ExprError> {
-    parse_and_check(source, &PlanResolver::new(plan), &UnitRegistry::new())
+    let typed = parse_and_check(source, &PlanResolver::new(plan), &UnitRegistry::new())?;
+    if let Some(builtin) = uses_stateful_builtin(&typed) {
+        return Err(cetus_expr::ExprError::Type(cetus_expr::TypeError {
+            code: "E1901",
+            message: format!(
+                "`{}` needs simulation state, which this paradigm does not implement yet",
+                builtin.name()
+            ),
+            start: 0,
+            end: source.len(),
+        }));
+    }
+    Ok(typed)
 }
 
 /// Suggests a display unit for `dim`.
@@ -1049,6 +1071,23 @@ fn parse_checked(
 ) -> Option<cetus_expr::TypedExpr> {
     match parse_and_check(source, resolver, registry) {
         Ok(typed) => {
+            if let Some(builtin) = uses_stateful_builtin(&typed) {
+                diagnostics.push(
+                    Diagnostic::error(
+                        "E1901",
+                        format!(
+                            "`{}` needs simulation state, which this paradigm does not implement yet",
+                            builtin.name()
+                        ),
+                        Some(path),
+                    )
+                    .with_help(
+                        "delay1/delay3/smooth are rejected until their state slots land; \
+                         use a stock or a `solve:` block for now",
+                    ),
+                );
+                return None;
+            }
             if !typed.ty.is_m1_supported() {
                 diagnostics.push(Diagnostic::error(
                     "E1901",
@@ -1070,6 +1109,27 @@ fn parse_checked(
             );
             None
         }
+    }
+}
+
+fn uses_stateful_builtin(expr: &TypedExpr) -> Option<Builtin> {
+    match &expr.kind {
+        TypedKind::Call(builtin, args) => {
+            if builtin.needs_state() {
+                Some(*builtin)
+            } else {
+                args.iter().find_map(uses_stateful_builtin)
+            }
+        }
+        TypedKind::Unary(_, inner) => uses_stateful_builtin(inner),
+        TypedKind::Binary(_, lhs, rhs) => {
+            uses_stateful_builtin(lhs).or_else(|| uses_stateful_builtin(rhs))
+        }
+        TypedKind::If(cond, then, otherwise) => uses_stateful_builtin(cond)
+            .or_else(|| uses_stateful_builtin(then))
+            .or_else(|| uses_stateful_builtin(otherwise)),
+        TypedKind::Lookup(_, index) => uses_stateful_builtin(index),
+        TypedKind::Const(_) | TypedKind::Load(_) | TypedKind::Time | TypedKind::Dt => None,
     }
 }
 
@@ -1209,7 +1269,10 @@ fn visit_auxiliary(
                 format!("algebraic cycle between auxiliaries: {message}"),
                 Some(&format!("auxiliaries.{name}.eq")),
             )
-            .with_help("break the cycle with `smooth` or `delay1`, or move it to a `solve:` block"),
+            .with_help(
+                "break the cycle by making one quantity a stock, or move it to a `solve:` \
+                 block; `smooth`/`delay1` are not implemented yet (E1901)",
+            ),
         );
         return;
     }
@@ -1296,6 +1359,26 @@ pub fn expressions_equivalent(
     equivalent(lhs, rhs, domain, options)
 }
 
+/// Checks equivalence with the plan's lookup tables available to both sides.
+#[must_use]
+pub fn expressions_equivalent_with_tables(
+    lhs: &CompiledExpr,
+    rhs: &CompiledExpr,
+    domain: &[DomainVar],
+    options: &EquivOptions,
+    tables: &[CompiledTable],
+) -> EquivOutcome {
+    cetus_expr::equivalent_with_tables(lhs, rhs, domain, options, &PlanTables(tables))
+}
+
+struct PlanTables<'a>(&'a [CompiledTable]);
+
+impl cetus_expr::TableLookup for PlanTables<'_> {
+    fn lookup(&self, table: u32, x: f64) -> Option<f64> {
+        self.0.get(table as usize).map(|table| table.lookup(x))
+    }
+}
+
 /// Returns every variable load in an expression (used by the verifier).
 #[must_use]
 pub fn loads_of(expr: &CompiledExpr) -> Vec<u32> {
@@ -1373,6 +1456,19 @@ mod tests {
     }
 
     #[test]
+    fn keeps_undeclared_scale_as_none_and_exposes_declared_scale() {
+        let plan = compile_model(&solar_model()).expect("compile");
+        assert_eq!(plan.scale_of("area"), None);
+
+        let scaled =
+            r#"area: { unit: "m^2", value: 12, range: [1, 100], role: control, scale: 1e-9 }"#;
+        let yaml = crate::SOLAR_YAML.replace(SOLAR_AREA, scaled);
+        let model = Model::from_yaml(&yaml).expect("parse");
+        let plan = compile_model(&model).expect("compile");
+        assert_eq!(plan.scale_of("area"), Some(1e-9));
+    }
+
+    #[test]
     fn rejects_a_flow_with_the_wrong_dimension() {
         let yaml = crate::SOLAR_YAML.replace(
             "charging: { to: charge, unit: W, eq: \"if charge < capacity then pv_power else 0\" }",
@@ -1396,6 +1492,25 @@ mod tests {
         let model = Model::from_yaml(&yaml).expect("parse");
         let diagnostics = compile_model(&model).expect_err("must fail");
         assert!(diagnostics.iter().any(|d| d.code == "E2101"));
+    }
+
+    #[test]
+    fn rejects_stateful_builtins_until_their_state_slots_exist() {
+        for call in ["smooth", "delay1", "delay3"] {
+            let yaml = crate::SOLAR_YAML.replace(
+                "eq: \"efficiency * area * irradiance\"",
+                &format!("eq: \"{call}(efficiency * area * irradiance, 1[h])\""),
+            );
+            assert_ne!(yaml, crate::SOLAR_YAML, "the equation line was not found");
+            let model = Model::from_yaml(&yaml).expect("parse");
+            let diagnostics = compile_model(&model).expect_err("stateful builtin must be rejected");
+            let hit = diagnostics
+                .iter()
+                .find(|diagnostic| diagnostic.code == "E1901")
+                .unwrap_or_else(|| panic!("{call}: {diagnostics:?}"));
+            assert_eq!(hit.path.as_deref(), Some("auxiliaries.pv_power.eq"));
+            assert!(hit.message.contains(call), "{call}: {}", hit.message);
+        }
     }
 
     const SOLAR_AREA: &str = r#"area: { unit: "m^2", value: 12, range: [1, 100], role: control }"#;
@@ -1469,6 +1584,14 @@ observables:
 
         let error = parse_in_plan("2[m] + 3[s]", &plan).expect_err("dimension mismatch");
         assert_eq!(error.code(), "E1201");
+    }
+
+    #[test]
+    fn parse_in_plan_rejects_stateful_builtins() {
+        let plan = compile_model(&solar_model()).expect("compile");
+        let error = parse_in_plan("smooth(pv_power, 1[h])", &plan).expect_err("stateful builtin");
+        assert_eq!(error.code(), "E1901");
+        assert!(error.to_string().contains("smooth"), "{error}");
     }
 
     #[test]

@@ -176,6 +176,7 @@ fn check_misconceptions(
     diagnostics: &mut Diagnostics,
 ) {
     for misconception in misconceptions {
+        check_source(misconception, prefix, diagnostics);
         for task_id in &misconception.must_fail {
             if !task_ids.contains(task_id.as_str()) {
                 diagnostics.push(Diagnostic::error(
@@ -196,6 +197,55 @@ fn check_misconceptions(
             diagnostics,
         );
     }
+}
+
+fn check_source(misconception: &Misconception, prefix: &str, diagnostics: &mut Diagnostics) {
+    let source = &misconception.source;
+    let path = format!("{prefix}.{}.source", misconception.id);
+    if source.is_hypothesized() {
+        diagnostics.push(
+            Diagnostic::warning(
+                "W5201",
+                format!(
+                    "misconception `{}` is marked hypothesized; cite a source before expert_reviewed",
+                    misconception.id
+                ),
+                Some(&format!("{path}.kind")),
+            )
+            .with_help(
+                "replace kind with research_documented, exam_item, historical_theory or \
+                 folk_belief and add ref: \"src:<id>\" once research lands",
+            ),
+        );
+    } else if source.reference.is_none() {
+        diagnostics.push(Diagnostic::error(
+            "E5204",
+            format!(
+                "misconception `{}` needs source.ref unless kind is hypothesized",
+                misconception.id
+            ),
+            Some(&format!("{path}.ref")),
+        ));
+        return;
+    }
+    if let Some(reference) = &source.reference
+        && !valid_source_ref(reference)
+    {
+        diagnostics.push(Diagnostic::error(
+            "E5204",
+            format!(
+                "misconception `{}` source.ref `{reference}` is not `src:<id>`",
+                misconception.id
+            ),
+            Some(&format!("{path}.ref")),
+        ));
+    }
+}
+
+fn valid_source_ref(reference: &str) -> bool {
+    reference
+        .strip_prefix("src:")
+        .is_some_and(|id| !id.is_empty() && !id.chars().any(char::is_whitespace))
 }
 
 fn check_patch(

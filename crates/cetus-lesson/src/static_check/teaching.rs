@@ -60,6 +60,23 @@ fn check_native(
             ),
         );
     }
+    if let Some(misconception) = lesson
+        .misconceptions()
+        .find(|misconception| misconception.id == holds)
+        && misconception.source.is_hypothesized()
+    {
+        diagnostics.push(
+            Diagnostic::warning(
+                "W5202",
+                format!(
+                    "teaching task `{id}` holds hypothesized misconception `{holds}`; \
+                     prefer a sourced misconception"
+                ),
+                Some(&format!("teaching.{id}.holds")),
+            )
+            .with_help("replace it once research-misconceptions finds a sourced entry"),
+        );
+    }
     check_setup_space(lesson, truth_model, id, setup_space, diagnostics);
     check_variants(lesson, id, holds, variants, diagnostics);
 }

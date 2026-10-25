@@ -46,6 +46,7 @@ pub(super) fn verify(target: &str, path: &Path, source: &str, level: Level) -> R
                     .iter()
                     .filter(|diagnostic| diagnostic.severity == Severity::Error)
                     .count();
+                let warnings = diagnostics.len() - errors;
                 report.checks.push(CheckResult {
                     level: Level::V1,
                     name: "lesson static checks".to_owned(),
@@ -53,7 +54,7 @@ pub(super) fn verify(target: &str, path: &Path, source: &str, level: Level) -> R
                     detail: if diagnostics.is_empty() {
                         "no diagnostics".to_owned()
                     } else {
-                        format!("{} diagnostic(s)", diagnostics.len())
+                        format!("{errors} error(s), {warnings} warning(s)")
                     },
                 });
                 report.diagnostics.extend(diagnostics);

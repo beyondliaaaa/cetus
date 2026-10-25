@@ -155,6 +155,44 @@ pub enum PlayerBase {
     Truth,
 }
 
+/// Where a misconception comes from.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct MisconceptionSource {
+    /// Source category.
+    pub kind: MisconceptionSourceKind,
+    /// Source reference (`src:<id>`); required unless `kind` is `hypothesized`.
+    #[serde(rename = "ref", default)]
+    pub reference: Option<String>,
+    /// Optional authoring note.
+    #[serde(default)]
+    pub note: Option<String>,
+}
+
+/// The category of a misconception source.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub enum MisconceptionSourceKind {
+    /// Recorded in discipline-education research.
+    ResearchDocumented,
+    /// A wrong approach that recurs in exam items.
+    ExamItem,
+    /// A theory held historically.
+    HistoricalTheory,
+    /// A documented folk belief.
+    FolkBelief,
+    /// A plausible guess with no source yet.
+    Hypothesized,
+}
+
+impl MisconceptionSource {
+    /// Whether this source is still a hypothesis awaiting research.
+    #[must_use]
+    pub fn is_hypothesized(&self) -> bool {
+        self.kind == MisconceptionSourceKind::Hypothesized
+    }
+}
+
 /// A misconception model and the tasks it must fail.
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
@@ -163,6 +201,8 @@ pub struct Misconception {
     pub id: String,
     /// Human-readable note.
     pub note: String,
+    /// Where this misconception comes from.
+    pub source: MisconceptionSource,
     /// Model patches (or L1 causal patches for layer misconceptions).
     #[serde(default)]
     pub patch: IndexMap<String, String>,

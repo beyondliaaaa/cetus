@@ -1,6 +1,6 @@
 //! Schema parsing and strictness tests.
 
-use cetus_lesson::{Hole, Lesson, LessonError};
+use cetus_lesson::{Hole, Lesson, LessonError, MisconceptionSourceKind};
 
 fn fixture(name: &str) -> String {
     let path = format!("{}/tests/fixtures/{name}", env!("CARGO_MANIFEST_DIR"));
@@ -50,6 +50,44 @@ fn given_unknown_check_field_when_parsed_then_it_is_rejected() {
         "check: { kind: expr_equiv, bogus: 1 }",
     );
     let error = Lesson::from_yaml(&broken).expect_err("unknown check field must be rejected");
+    assert!(matches!(error, LessonError::Yaml { .. }));
+}
+
+#[test]
+fn given_positive_lesson_when_parsed_then_misconception_sources_are_exposed() {
+    let lesson = positive_lesson();
+    let square = lesson
+        .misconceptions()
+        .find(|misconception| misconception.id == "m_square")
+        .expect("m_square");
+    assert_eq!(square.source.kind, MisconceptionSourceKind::Hypothesized);
+    assert_eq!(square.source.reference, None);
+    assert!(square.source.is_hypothesized());
+    assert!(square.source.note.is_some());
+}
+
+#[test]
+fn given_exam_item_source_when_parsed_then_it_is_exposed() {
+    let lesson = Lesson::from_yaml(&fixture("positive.lesson.yaml").replace(
+        "source: { kind: hypothesized, ref: null, note: \"待 research-misconceptions 调研\" }",
+        "source: { kind: exam_item, ref: \"src:exam.2019.q3\", note: \"example\" }",
+    ))
+    .expect("parse");
+    let square = lesson
+        .misconceptions()
+        .find(|misconception| misconception.id == "m_square")
+        .expect("m_square");
+    assert_eq!(square.source.kind, MisconceptionSourceKind::ExamItem);
+    assert_eq!(square.source.reference.as_deref(), Some("src:exam.2019.q3"));
+}
+
+#[test]
+fn given_missing_misconception_source_when_parsed_then_it_is_rejected() {
+    let broken = fixture("positive.lesson.yaml").replace(
+        "    source: { kind: hypothesized, ref: null, note: \"待 research-misconceptions 调研\" }\n",
+        "",
+    );
+    let error = Lesson::from_yaml(&broken).expect_err("source is required");
     assert!(matches!(error, LessonError::Yaml { .. }));
 }
 

@@ -88,7 +88,7 @@
 - **课程 fixture**：`content/lessons/energy.battery-night/`（正例）与
   `energy.battery-night-broken/`（E5203 + E5401 反例）。
 - **诊断页**：`docs/errors/E5203.md`、`docs/errors/E5401.md`。
-- **测试**：`cetus-lesson` 31、`cetus-verify` 10、`cetus-cli` 5。
+- **测试**：`cetus-lesson` 35、`cetus-verify` 10、`cetus-cli` 5。
 
 ### M3 切片 1 已知限制
 
@@ -119,7 +119,9 @@
   条目时产生 W5202。V6 的专家签字规则已写入指南 §8.7，暂不自动检查。
 - battery-night 的 `m_square`、`m_constant_sun`、`m_load_helps` 暂标为
   `hypothesized`，待 `research-misconceptions` 调研后替换；未填写任何文献条目。
-- 提示阶梯与 `rel_tol` 修订随 PR2/PR3 落地。
+- **提示阶梯（PR2）**：`holes[].hints` 改为对象 `{ q0?, h1, h2, h3 }`；`q0` 省略时由
+  检查器按 §6.4 生成，`h1`–`h3` 必填；V1 用 E0003 校验 key 非空。
+- `rel_tol` 修订随 PR3 落地。
 
 ### M3 评审修复（2026-10-24）
 

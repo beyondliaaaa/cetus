@@ -144,6 +144,50 @@ fn given_unknown_task_hole_when_checked_statically_then_e2101_is_reported() {
 }
 
 #[test]
+fn given_empty_h1_when_checked_then_e0003_is_reported() {
+    let mut lesson = lesson_fixture("positive.lesson.yaml");
+    let hole = lesson
+        .player_model
+        .holes
+        .iter_mut()
+        .find(|hole| hole.id() == "h_pv")
+        .expect("h_pv");
+    if let Hole::Equation { hints, .. } = hole {
+        hints.h1.clear();
+    }
+    let diagnostics = check_static(&lesson, &solar());
+    assert!(diagnostics.iter().any(|diagnostic| {
+        diagnostic.code == "E0003"
+            && diagnostic
+                .path
+                .as_deref()
+                .is_some_and(|path| path == "player_model.holes.h_pv.hints.h1")
+    }));
+}
+
+#[test]
+fn given_empty_q0_when_checked_then_e0003_is_reported() {
+    let mut lesson = lesson_fixture("positive.lesson.yaml");
+    let hole = lesson
+        .player_model
+        .holes
+        .iter_mut()
+        .find(|hole| hole.id() == "h_pv")
+        .expect("h_pv");
+    if let Hole::Equation { hints, .. } = hole {
+        hints.q0 = Some(String::new());
+    }
+    let diagnostics = check_static(&lesson, &solar());
+    assert!(diagnostics.iter().any(|diagnostic| {
+        diagnostic.code == "E0003"
+            && diagnostic
+                .path
+                .as_deref()
+                .is_some_and(|path| path == "player_model.holes.h_pv.hints.q0")
+    }));
+}
+
+#[test]
 fn given_unknown_task_control_when_checked_statically_then_e2101_is_reported() {
     let mut lesson = lesson_fixture("positive.lesson.yaml");
     lesson.tasks[0].controls = vec!["missing_control".to_owned()];

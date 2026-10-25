@@ -8,7 +8,7 @@ mod layers;
 mod task;
 mod teaching;
 
-pub use hole::Hole;
+pub use hole::{HintLadder, Hole};
 pub use layers::{Layer, LayerBase, LayerId, Layers};
 pub use task::{Check, Setup, Task, TaskKind};
 pub use teaching::{ControlRange, DurationSpec, InitialRange, Scenario, SetupSpace, TeachingTask};

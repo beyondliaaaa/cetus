@@ -57,7 +57,7 @@ tasks:
   - id: t4
     kind: predict
     prompt: prompt.battery-empty-time
-    answer: "first_time(charge <= 0)"
+    answer: "first_time(charge_pct <= 0)"
     setup: { params: { load: "1200[W]" }, initial: { charge: "0.3 * capacity" } }
     check: { kind: abs_tol, tol: "1[h]" }
   - id: t5

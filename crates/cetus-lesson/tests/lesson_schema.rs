@@ -135,6 +135,17 @@ fn given_rel_tol_check_when_parsed_then_tolerance_is_a_number() {
 }
 
 #[test]
+fn given_positive_lesson_when_parsed_then_t4_reads_the_observable() {
+    let lesson = positive_lesson();
+    let t4 = lesson
+        .tasks
+        .iter()
+        .find(|task| task.id == "t4")
+        .expect("t4");
+    assert_eq!(t4.answer.as_deref(), Some("first_time(charge_pct <= 0)"));
+}
+
+#[test]
 fn given_unknown_top_level_field_when_parsed_then_it_is_rejected() {
     let broken = fixture("positive.lesson.yaml").replace(
         "schema: cetus.lesson/0.1\n",

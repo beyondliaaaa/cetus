@@ -101,6 +101,18 @@ fn given_positive_lesson_when_verified_at_v1_then_it_passes() {
 }
 
 #[test]
+fn given_content_lesson_when_loaded_then_t4_reads_the_observable() {
+    let source = read(&lesson("energy.battery-night"));
+    let lesson = cetus_lesson::Lesson::from_yaml(&source).expect("parse lesson");
+    let t4 = lesson
+        .tasks
+        .iter()
+        .find(|task| task.id == "t4")
+        .expect("t4");
+    assert_eq!(t4.answer.as_deref(), Some("first_time(charge_pct <= 0)"));
+}
+
+#[test]
 fn given_broken_lesson_when_verified_at_v1_then_it_fails_with_e5203_and_e5401() {
     let report = verify_path(&lesson("energy.battery-night-broken"), Level::V1).expect("verify");
     assert!(!report.passed(), "{report:?}");

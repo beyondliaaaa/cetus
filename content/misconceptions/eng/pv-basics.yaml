@@ -1,0 +1,137 @@
+# 误解目录：光伏发电基础 + 蓄电池夜间耗尽（lesson.energy.battery-night）
+# 草稿 · 2026-10-26 · research-misconceptions skill v0.1 · 对应指南 v0.5.2
+# 调研报告：misconceptions/reports/2026-10-26-battery-night.md
+#
+# 节点 ID 中带 TODO 的，等 cetus-knowledge-network 产出第一阶段骨架后替换。
+
+- schema: cetus.misconception/0.1
+  id: "mc:meta.modeling.stock-follows-inflow"
+  nodes: ["kg:eng.energy.pv-basics", "kg:TODO.stock-flow-basics"]
+  layer: L1
+  kind: research_documented
+  statement:
+    zh-CN: "太阳越大，电池就越满；太阳一落山，电池就是最空的时候。电量的曲线应该跟太阳的曲线长得差不多。"
+  correct_view:
+    zh-CN: "电量是存量，它的变化速度等于充电减去放电（净流量），而不是跟着充电量本身走。只要光伏功率还大于负荷，电量就会继续上升；所以电量在下午光伏功率降到负荷以下时才最满，在第二天早上光伏功率重新超过负荷时才最空，而不是在日落时最空。"
+  why_plausible:
+    zh-CN: "在很多日常情境里，输入大的时候结果也大，用“形状对形状”的匹配来推测通常够用。而且电量和光照确实相关：白天整体在充，夜里整体在放。只有看最高点和最低点出现在什么时候，才能看出两者的差别。"
+  evidence:
+    - source: "Booth Sweeney, L., & Sterman, J. D. (2000). Bathtub dynamics: Preliminary results of a systems thinking inventory. 2000 International System Dynamics Conference 会议版（期刊版：System Dynamics Review 16, 249–286，题名为 initial results）"
+      summary: "让修读 MIT Sloan 系统动力学入门课的学生（多数有理工背景，几乎都学过微积分）根据给定的流入和流出曲线画出浴缸水量或现金余额随时间的变化。锯齿形流入的任务中，约一半的人画出的存量曲线照搬了净流量的形状；只有 40% 的人把存量的峰和谷放在净流量过零的时刻。作者推测人们在用“输出形状匹配输入形状”的启发式。"
+    - source: "Cronin, M. A., Gonzalez, C., & Sterman, J. D. (2009). Why don't well-educated adults understand accumulation? A challenge to researchers, educators, and citizens. Organizational Behavior and Human Decision Processes, 108(1), 116–130. doi:10.1016/j.obhdp.2008.03.003"
+      summary: "（只读过摘要和二手转述）一系列实验发现，受过良好教育、技术训练很强的人也常常推断不出简单存量-流量系统的行为；作者把其中一种错误称为“相关性启发”：误以为存量的走势与流量的走势一致。困难不能归因于读图能力、情境、动机或认知负荷。"
+    - source: "Aşık, G., & Doğança Küçük, Z. (2021). Metacognition in action as a possible explanation for stock-flow failure. System Dynamics Review, 37(4), 253–282. doi:10.1002/sdr.1692"
+      summary: "沿用浴缸任务做了重复研究，并综述指出在多项研究中，答对存量-流量问题的本科生和研究生不到一半；关于流量的子问题答对率远高于关于存量的子问题。"
+  prevalence: "Booth Sweeney & Sterman (2000)：锯齿流入任务中 48%（72/150）的存量曲线照搬净流量的形状；只有 40% 正确定位峰谷。人群：MIT Sloan 系统动力学入门课学生。原住民或大众玩家中的比例未知。"
+  regime:
+    agrees_when: { zh-CN: "只看“白天整体变多、夜里整体变少”这一粗略趋势；或者负荷为零、电池从未充满时，电量在整个白天单调上升" }
+    diverges_when: { zh-CN: "问电量的最高点和最低点在什么时候：误解预测最满在正午、最空在日落后不久或整个夜里一样空；真模型给出最满在下午（光伏功率降到负荷以下的时刻，或者更早就充满了），最空在日出后光伏功率重新超过负荷的时刻" }
+  patch_idea:
+    patchable: "yes"
+    sketch: { zh-CN: "把 charge_pct 的观测方程改为跟随光伏功率的形状，例如 pv_power / (efficiency * area * peak_irradiance)，不再积分。课程任务应读取仪器可测量的 charge_pct（t4 已改为 first_time(charge_pct <= 0)），因此这个补丁会让 t4 和 t5 失败；V4 的自洽性检查把误解模型当作真模型、用同一个 patched observable 生成观测，仍会通过" }
+    why_not: ""
+  discriminating_observation:
+    zh-CN: "用电量计连续记录两个星球日，看电量的最低点出现在什么时刻：真模型是日出后一段时间，误解模型是夜里。负荷设得越接近光伏峰值功率，两个时刻相差越远，判别越容易"
+  story_use:
+    suitable: true
+    natives_phrasing_direction: { zh-CN: "原住民认为“太阳的力气是一下子灌进石头里的，太阳最高的时候石头最满，太阳一落山石头就空了”；在日出时发现石头竟然比半夜还空，会让他们很困惑" }
+    natives_right: false
+  confidence: high
+  notes: "这是本课最有研究支撑的误解，建议作为课程主误解与 teach-natives-1 的候选；m_square 删除后由 V4 变异测试覆盖 t2，不再单独保留。期刊版题名为 initial results，会议版题名为 preliminary results，二者应为同一研究，专家核对后定一个引用。Cronin et al. (2009) 只读了摘要。"
+
+- schema: cetus.misconception/0.1
+  id: "mc:phys.em.battery-constant-source"
+  nodes: ["kg:eng.energy.pv-basics", "kg:TODO.battery-charge-discharge"]
+  layer: L1
+  kind: research_documented
+  statement:
+    zh-CN: "电池里装着固定的电，它每小时就出那么多，接几盏灯都一样，所以一块电池能撑多久是固定的。"
+  correct_view:
+    zh-CN: "电池对外提供的是电压，输出多少功率由负荷决定。负荷越大，放电越快，同样的电量撑的时间越短。"
+  why_plausible:
+    zh-CN: "日常经验里电池被当成装着东西的容器，用完就空；而且家里接的设备通常是固定的，很少有机会观察到同一块电池在不同负荷下撑的时间不同。"
+  evidence:
+    - source: "Engelhardt, P. V., & Beichner, R. J. Students' understanding of direct current resistive electrical circuits（arXiv:physics/0304040；正式发表信息待核对，疑为 American Journal of Physics 72(1), 2004）"
+      summary: "开发 DIRECT 直流电路概念测验时访谈了学生。访谈中最常出现的想法是“电池是恒定的电流源”，即无论电路怎么连接，电池都提供相同的电流；文中引用 Cohen, Eylon & Ganiel (1983)、Dupin & Johsua (1987)、Licht & Thijs (1990) 作为先前记录。同时列出“电流被消耗”的误解（引用 Osborne 1981、Shipstone 1984 等），以及学生把能量的属性赋给电流、电压和功率。"
+    - source: "Wainwright, C. L. Toward learning and understanding electricity: Challenging persistent misconceptions（Pacific University，年份未标注）"
+      summary: "综述文章：学生即使在教学之后，仍把电池当作恒定电流源而不是恒定电压源；并且普遍认为电荷会被用掉，混用能量、电流、电压、功率这些词。"
+  prevalence: "TODO(expert)"
+  regime:
+    agrees_when: { zh-CN: "负荷固定不变时，“每小时出固定的量”与真模型一致（本课默认负荷是常数 800 W）" }
+    diverges_when: { zh-CN: "改变负荷：误解预测电池耗尽的时间不变，真模型给出耗尽时间随负荷增大而缩短" }
+  patch_idea:
+    patchable: "yes"
+    sketch: { zh-CN: "把 flows.discharging.eq 中的 load 换成一个固定常数（例如课程默认负荷 800 W），使放电与玩家设置的负荷无关；L1 层对应把“负荷 → 电量”的箭头标为“无关”。注意：原文研究的是电路中的电流，迁移到“电池放电速度与负荷无关”是本调研的推论，需要专家确认这种迁移是否成立" }
+    why_not: ""
+  discriminating_observation:
+    zh-CN: "在两次实验中分别设负荷 400 W 和 1600 W，从同样的电量开始，看夜里电池什么时候耗尽"
+  story_use:
+    suitable: true
+    natives_phrasing_direction: { zh-CN: "原住民把电池当成一个“每晚吐出同样多亮光”的罐子，以为多挂几盏灯，每盏灯就会变暗，但罐子撑的时间不变" }
+    natives_right: false
+  confidence: medium
+  notes: "可以替换现有的 L1 误解 m_load_helps（“负荷越大充得越快”），它没找到出处。需要拆成两条：L1 因果补丁 { c2: irrelevant } 让 l1-1 失败；L2 模型补丁 flows.discharging.eq 固定 800 W 让 t4 失败（t4 的 load=1200 W 必须与 800 W 不同）。teaching.holds 只能引用模型补丁条目，否则 E5401。confidence 为 medium，原因是电路研究到储能情境的迁移是推论。"
+
+- schema: cetus.misconception/0.1
+  id: "mc:eng.energy.average-sun"
+  nodes: ["kg:eng.energy.pv-basics"]
+  layer: L2
+  kind: hypothesized
+  statement:
+    zh-CN: "按一天平均下来，太阳每时每刻都给这么多，所以只要板子的平均发电量大于负荷，电池就永远不会空。"
+  correct_view:
+    zh-CN: "日均发电量大于负荷只保证电量不会长期下降；夜里没有光照，电池仍然要靠白天存下的电撑过去，容量不够就会在夜里耗尽。"
+  why_plausible:
+    zh-CN: "用平均值做估算是很有用的习惯，而且对一天以上的长期收支来说结论是对的。它只是忽略了一天之内的起伏需要存储来缓冲。"
+  evidence:
+    - source: "无文献，推测理由：这是对现有课程误解 m_constant_sun 的整理；与“用平均值代替随时间变化的量”这一常见建模简化相对应。没有找到专门记录学习者这样想的研究"
+      summary: ""
+  prevalence: "TODO(expert)"
+  regime:
+    agrees_when: { zh-CN: "电池容量足够大，或者只看几天以上的电量趋势" }
+    diverges_when: { zh-CN: "容量小、夜间负荷大：误解预测电池永不耗尽，真模型给出电池在夜里归零" }
+  patch_idea:
+    patchable: "yes"
+    sketch: { zh-CN: "即现有的 m_constant_sun：把 auxiliaries.irradiance.eq 换成日均值 peak_irradiance / pi" }
+    why_not: ""
+  discriminating_observation:
+    zh-CN: "电池容量设小、负荷接近日均发电量，看夜里电量是否归零"
+  story_use:
+    suitable: true
+    natives_phrasing_direction: { zh-CN: "即现有课程台词 dialog.native.sun-never-sleeps 的方向" }
+    natives_right: false
+  confidence: low
+  notes: "confidence 为 low，因为没有找到出处。可以保留在课程中，但出处标为 hypothesized；需要专家判断是否值得找易错题或教材中的对应记录。"
+
+- schema: cetus.misconception/0.1
+  id: "mc:eng.energy.pv-better-when-cold"
+  nodes: ["kg:eng.energy.pv-basics", "kg:TODO.pv-temperature"]
+  layer: L1
+  kind: folk_belief
+  statement:
+    zh-CN: "晴朗的冷天，板子出的力气比晴朗的热天还大。"
+  correct_view:
+    zh-CN: "这是对的，但有边界。在辐照度相同的条件下，晶硅电池温度越高，电压越低，输出功率越小；所以冷而晴朗的日子是最好的发电条件。但冷天往往日照时间短、太阳高度低，一整天的总发电量不一定更多；“冷”本身不发电，前提是光照一样。"
+  tempting_wrong_explanation:
+    zh-CN: "“太阳越热，能量越多，板子当然在热天发得多。”错在把光伏当成靠热工作的设备：光伏利用的是光子，温度升高反而通过降低电压使功率下降。"
+  why_plausible:
+    zh-CN: "原住民的观察来自经验：同样晴朗的日子，冷的时候灯更亮。"
+  evidence:
+    - source: "Penn State AE 868（Commercial Solar Electric Systems）课程讲义“Temperature and PV Performance Optimization”，courses.ems.psu.edu"
+      summary: "温度越高，电池电压越低，功率-电压曲线的峰值随之下降；电流随温度略有上升，但不足以抵消电压的下降。主要原因是二极管暗电流随温度急剧增大。电池温度取决于辐照度和环境温度，所以冷而晴朗的日子是组件最好的工作条件。温度系数以组件数据表为准。"
+  prevalence: "TODO(expert)"
+  regime:
+    agrees_when: { zh-CN: "辐照度相同、只比较温度时，原住民的说法与真模型一致" }
+    diverges_when: { zh-CN: "比较一整天或一整季的总发电量时，冷季日照短，这条经验可能失效；这是原住民说法的边界" }
+  patch_idea:
+    patchable: "no"
+    sketch: { zh-CN: "" }
+    why_not: "当前模块 energy.solar-battery 没有温度变量，效率是常数；要等有温度系数的光伏模块（例如 kg:TODO.pv-temperature 节点）才能写成可运行的补丁。在本课中只适合作为小故事。"
+  discriminating_observation:
+    zh-CN: "在辐照度相近的冷天和热天各测一次正午功率；再比较两季的日总发电量"
+  story_use:
+    suitable: true
+    natives_phrasing_direction: { zh-CN: "原住民说“冷天的太阳更有劲”，玩家第一反应以为是迷信" }
+    natives_right: true
+  confidence: low
+  notes: "保留 natives_right: true，因为原住民的说法在事实上是对的；但 M5 要求可靠科学来源，目前只有一份课程讲义。在专家补上教材、标准或同行评议综述之前不得使用这条，已列为专家问题 4。"

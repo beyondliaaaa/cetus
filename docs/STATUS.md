@@ -88,7 +88,7 @@
 - **课程 fixture**：`content/lessons/energy.battery-night/`（正例）与
   `energy.battery-night-broken/`（E5203 + E5401 反例）。
 - **诊断页**：`docs/errors/E5203.md`、`docs/errors/E5401.md`。
-- **测试**：`cetus-lesson` 39、`cetus-verify` 10、`cetus-cli` 5。
+- **测试**：`cetus-lesson` 40、`cetus-verify` 11、`cetus-cli` 5。
 
 ### M3 切片 1 已知限制
 
@@ -124,6 +124,10 @@
   检查器按 §6.4 生成，`h1`–`h3` 必填；V1 用 E0003 校验 key 非空。
 - **容差（PR3）**：`Check::RelTol` 改为 `tol: f64`；`RelTol` 与
   `ParamWithin.rel_tol` 由 V1 校验有限且 `0 < tol < 1`（E0003）。
+- **任务读取仪器量（PR5）**：battery-night 的 `t4` 从 `first_time(charge <= 0)` 改为
+  `first_time(charge_pct <= 0)`；判别类任务读仪器量，不读内部存量。规则写入指南
+  §6.3 与 M5 的 `design-misconceptions` 要求，并在 `research-misconceptions` 中记为
+  M8。
 
 ### M3 评审修复（2026-10-24）
 

@@ -985,7 +985,7 @@ tasks:
   - id: t4
     kind: predict
     prompt: prompt.battery-empty-time
-    answer: "first_time(charge <= 0)"
+    answer: "first_time(charge_pct <= 0)"
     setup: { params: { load: "1200[W]" }, initial: { charge: "0.3 * capacity" } }
     check: { kind: abs_tol, tol: "1[h]" }
   - { id: t5, kind: fit, check: { kind: trajectory_fit, observable: charge_pct, metric: nrmse, max: 0.05, window: ["0[h]", "72[h]"] } }
@@ -1049,6 +1049,7 @@ narrative:
 - 观测 = 真模型运行结果 + 仪器噪声 + 采样间隔 + 分辨率。噪声使用 `observation_noise` 子流，所以同一个存档里观测数据是可复现的。
 - 观测**不能**泄露隐藏参数：仪器只暴露 `measures` 中声明的变量。
 - 更难的课可以使用间接测量（例如只能测电压和电流，要自己算功率）。
+- **任务读仪器量，不读内部存量**：判别“某样东西怎样”的误解时，任务应读取仪器实际测量的量（观测量/仪器可读量），不要读模型内部存量。否则误解只改观测量时，任务仍读真值，判别会失效。例：battery-night 的 `t4` 用 `first_time(charge_pct <= 0)`，而不是 `charge`。这条规则也适用于判别实验与后续的 `design-misconceptions` 技能。
 - **以真实数据为真值**（H3）：`truth` 也可以是一个数据集，而不是模型：
 
 ```yaml
@@ -2185,6 +2186,7 @@ M12 公测准备          持续
 - [ ] 内容仓库独立出来；PR 模板；CI 中对每个改动的模块自动运行 `cetus verify`，并把报告评论到 PR 上。
 - [ ] 审核签名格式与可信等级徽章。
 - [ ] `skills/` 技能包第一批：`author-sd-module`、`write-behavior-tests`、`design-inquiry-lesson`、`design-misconceptions`、`design-teaching-tasks`、`review-module`、`fix-diagnostics`。
+  - `design-misconceptions` 必须包含规则：判别类任务读仪器量，不读内部存量（§6.3）。
 - [ ] 贡献者协议与内容许可证（取决于 §14 的决定）。
 
 **退出标准**：2 位外部专家各自独立完成一个模块和一节课，并合并到主线，期间开发者只回答不超过 3 个问题。同时，一个 LLM 代理按照技能包，能产出一个通过 V4 的 SD 模块草稿。

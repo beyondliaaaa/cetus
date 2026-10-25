@@ -7,7 +7,7 @@ use cetus_model::Model;
 
 use super::layers;
 use crate::patch::{PathError, set_model_path};
-use crate::schema::{Hole, Lesson, Misconception, Task};
+use crate::schema::{Check, Hole, Lesson, Misconception, Task};
 
 pub(super) fn check_base(
     lesson: &Lesson,
@@ -182,6 +182,30 @@ fn check_tasks(
                 ));
             }
         }
+        if let Some(Check::ParamWithin { rel_tol }) = &task.check {
+            check_tolerance(
+                *rel_tol,
+                &format!("{prefix}.{}.check.rel_tol", task.id),
+                diagnostics,
+            );
+        }
+        if let Some(Check::RelTol { tol }) = &task.check {
+            check_tolerance(
+                *tol,
+                &format!("{prefix}.{}.check.tol", task.id),
+                diagnostics,
+            );
+        }
+    }
+}
+
+fn check_tolerance(value: f64, path: &str, diagnostics: &mut Diagnostics) {
+    if !value.is_finite() || value <= 0.0 || value >= 1.0 {
+        diagnostics.push(Diagnostic::error(
+            "E0003",
+            format!("tolerance must be finite and 0 < tol < 1, found {value}"),
+            Some(path),
+        ));
     }
 }
 

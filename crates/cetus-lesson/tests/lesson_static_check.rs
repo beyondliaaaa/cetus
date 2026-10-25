@@ -1,7 +1,7 @@
 //! V1 static check tests.
 
 use cetus_compile::Severity;
-use cetus_lesson::{Hole, Lesson, MisconceptionSourceKind, check_static};
+use cetus_lesson::{Check, Hole, Lesson, MisconceptionSourceKind, check_static};
 use cetus_model::Model;
 
 fn solar() -> Model {
@@ -184,6 +184,40 @@ fn given_empty_q0_when_checked_then_e0003_is_reported() {
                 .path
                 .as_deref()
                 .is_some_and(|path| path == "player_model.holes.h_pv.hints.q0")
+    }));
+}
+
+#[test]
+fn given_rel_tol_at_one_when_checked_then_e0003_is_reported() {
+    let mut lesson = lesson_fixture("positive.lesson.yaml");
+    lesson.tasks[1].check = Some(Check::RelTol { tol: 1.0 });
+    let diagnostics = check_static(&lesson, &solar());
+    assert!(diagnostics.iter().any(|diagnostic| {
+        diagnostic.code == "E0003" && diagnostic.path.as_deref() == Some("tasks.t2.check.tol")
+    }));
+}
+
+#[test]
+fn given_param_within_zero_when_checked_then_e0003_is_reported() {
+    let mut lesson = lesson_fixture("positive.lesson.yaml");
+    lesson.tasks[2].check = Some(Check::ParamWithin { rel_tol: 0.0 });
+    let diagnostics = check_static(&lesson, &solar());
+    assert!(diagnostics.iter().any(|diagnostic| {
+        diagnostic.code == "E0003" && diagnostic.path.as_deref() == Some("tasks.t3.check.rel_tol")
+    }));
+}
+
+#[test]
+fn given_valid_rel_tol_when_checked_then_no_tolerance_error_is_reported() {
+    let mut lesson = lesson_fixture("positive.lesson.yaml");
+    lesson.tasks[1].check = Some(Check::RelTol { tol: 0.1 });
+    let diagnostics = check_static(&lesson, &solar());
+    assert!(!diagnostics.iter().any(|diagnostic| {
+        diagnostic.code == "E0003"
+            && diagnostic
+                .path
+                .as_deref()
+                .is_some_and(|path| path.starts_with("tasks.t2.check.tol"))
     }));
 }
 

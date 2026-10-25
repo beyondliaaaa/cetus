@@ -256,7 +256,7 @@ fn check_source(misconception: &Misconception, prefix: &str, diagnostics: &mut D
             )
             .with_help(
                 "replace kind with research_documented, exam_item, historical_theory or \
-                 folk_belief and add ref: \"src:<id>\" once research lands",
+                 folk_belief and add ref: \"src:<id>\" or \"mc:<id>\" once research lands",
             ),
         );
     } else if source.reference.is_none() {
@@ -276,7 +276,7 @@ fn check_source(misconception: &Misconception, prefix: &str, diagnostics: &mut D
         diagnostics.push(Diagnostic::error(
             "E5204",
             format!(
-                "misconception `{}` source.ref `{reference}` is not `src:<id>`",
+                "misconception `{}` source.ref `{reference}` is neither `src:<id>` nor `mc:<id>`",
                 misconception.id
             ),
             Some(&format!("{path}.ref")),
@@ -287,6 +287,7 @@ fn check_source(misconception: &Misconception, prefix: &str, diagnostics: &mut D
 fn valid_source_ref(reference: &str) -> bool {
     reference
         .strip_prefix("src:")
+        .or_else(|| reference.strip_prefix("mc:"))
         .is_some_and(|id| !id.is_empty() && !id.chars().any(char::is_whitespace))
 }
 

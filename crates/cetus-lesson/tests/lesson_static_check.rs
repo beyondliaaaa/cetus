@@ -76,6 +76,43 @@ fn given_documented_source_with_valid_ref_when_checked_then_no_source_error_is_r
 }
 
 #[test]
+fn given_mc_source_ref_when_checked_then_no_source_error_is_reported() {
+    let mut lesson = lesson_fixture("positive.lesson.yaml");
+    let misconception = lesson
+        .misconceptions
+        .iter_mut()
+        .find(|misconception| misconception.id == "m_square")
+        .expect("m_square");
+    misconception.source.kind = MisconceptionSourceKind::ResearchDocumented;
+    misconception.source.reference = Some("mc:meta.modeling.stock-follows-inflow".to_owned());
+    let diagnostics = check_static(&lesson, &solar());
+    assert!(!diagnostics.iter().any(|diagnostic| {
+        diagnostic.code == "E5204"
+            && diagnostic
+                .path
+                .as_deref()
+                .is_some_and(|path| path.starts_with("misconceptions.m_square.source"))
+    }));
+}
+
+#[test]
+fn given_mc_source_ref_with_empty_id_when_checked_then_e5204_is_reported() {
+    let mut lesson = lesson_fixture("positive.lesson.yaml");
+    let misconception = lesson
+        .misconceptions
+        .iter_mut()
+        .find(|misconception| misconception.id == "m_square")
+        .expect("m_square");
+    misconception.source.kind = MisconceptionSourceKind::ResearchDocumented;
+    misconception.source.reference = Some("mc:".to_owned());
+    let diagnostics = check_static(&lesson, &solar());
+    assert!(diagnostics.iter().any(|diagnostic| {
+        diagnostic.code == "E5204"
+            && diagnostic.path.as_deref() == Some("misconceptions.m_square.source.ref")
+    }));
+}
+
+#[test]
 fn given_bad_source_ref_when_checked_then_e5204_is_reported() {
     let mut lesson = lesson_fixture("positive.lesson.yaml");
     let misconception = lesson

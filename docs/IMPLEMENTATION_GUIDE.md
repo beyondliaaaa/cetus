@@ -972,10 +972,11 @@ player_model:
       target: auxiliaries.pv_power.eq
       kind: equation                    # equation | parameter | link | rule | code | derivation
       palette: [efficiency, area, irradiance, "+", "*", "/"]   # 可视化搭建时提供的积木
-      hints: [hint.pv.1, hint.pv.2, hint.pv.3]                 # 逐级提示，i18n 键
+      hints: { q0: hint.pv.0, h1: hint.pv.1, h2: hint.pv.2, h3: hint.pv.3 }
     - id: h_eff
       target: parameters.efficiency.value
       kind: parameter
+      hints: { h1: hint.eff.1, h2: hint.eff.2, h3: hint.eff.3 }
 
 tasks:
   - { id: t1, kind: measure,  done_when: "used(lux_meter) and used(power_meter)" }
@@ -1066,7 +1067,9 @@ truth:
   - `trajectory_fit` 失败：取偏差最大的时刻，填入“看看 {时刻} 前后，你的模型和 {仪器} 的读数差在哪里？”
   - `causal_sign` 失败：取方向错误的那一对变量，填入“试着只增加 {原因}，{结果} 会怎么变？”
   - `abs_tol` 失败（预测题）：“先别算，直接运行到 {时刻} 看看。你的预测是偏早还是偏晚？”
-  - 课程可以在 `hints` 中为某个洞覆盖第 0 级的模板（i18n 键）。
+  - `holes[].hints` 是对象 `{ q0?, h1, h2, h3 }`：`q0` 可选，省略时由检查器按下面的规则
+  确定性生成；`h1`–`h3` 必填。V1 校验四个 i18n 键都非空。课程可以只覆盖第 0 级模板
+  （`q0`）。
 - **计入掌握度的方式**（工作假设，M3 校准）：第 0 级不计为“使用了提示”，因为它不提供答案信息，只是把探究循环再走一遍；第 1–3 级照常计入，影响 FSRS 的初始评级。
 - 同一套阶梯也用于判别实验（§6.8.3）和请教事件。
 

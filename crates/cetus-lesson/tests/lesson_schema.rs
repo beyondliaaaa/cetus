@@ -92,6 +92,36 @@ fn given_missing_misconception_source_when_parsed_then_it_is_rejected() {
 }
 
 #[test]
+fn given_hole_hints_when_parsed_then_the_ladder_is_exposed() {
+    let lesson = positive_lesson();
+    let pv = lesson
+        .holes()
+        .find(|hole| hole.id() == "h_pv")
+        .expect("h_pv");
+    let hints = pv.hints().expect("h_pv hints");
+    assert_eq!(hints.q0.as_deref(), Some("hint.pv.0"));
+    assert_eq!(hints.h1, "hint.pv.1");
+    assert_eq!(hints.h2, "hint.pv.2");
+    assert_eq!(hints.h3, "hint.pv.3");
+
+    let efficiency = lesson
+        .holes()
+        .find(|hole| hole.id() == "h_eff")
+        .expect("h_eff");
+    assert_eq!(efficiency.hints().expect("h_eff hints").q0, None);
+}
+
+#[test]
+fn given_unknown_hint_field_when_parsed_then_it_is_rejected() {
+    let broken = fixture("positive.lesson.yaml").replace(
+        "hints: { q0: hint.pv.0, h1: hint.pv.1, h2: hint.pv.2, h3: hint.pv.3 }",
+        "hints: { q0: hint.pv.0, h1: hint.pv.1, h2: hint.pv.2, h3: hint.pv.3, h4: nope }",
+    );
+    let error = Lesson::from_yaml(&broken).expect_err("unknown hint field must be rejected");
+    assert!(matches!(error, LessonError::Yaml { .. }));
+}
+
+#[test]
 fn given_unknown_top_level_field_when_parsed_then_it_is_rejected() {
     let broken = fixture("positive.lesson.yaml").replace(
         "schema: cetus.lesson/0.1\n",

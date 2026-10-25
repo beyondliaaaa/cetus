@@ -87,6 +87,14 @@ fn check_hole(
     prefix: &str,
     diagnostics: &mut Diagnostics,
 ) {
+    if let Some(hints) = hole.hints() {
+        check_hint(&hints.h1, "h1", prefix, diagnostics);
+        check_hint(&hints.h2, "h2", prefix, diagnostics);
+        check_hint(&hints.h3, "h3", prefix, diagnostics);
+        if let Some(question) = &hints.q0 {
+            check_hint(question, "q0", prefix, diagnostics);
+        }
+    }
     if let Some(target) = hole.target() {
         let mut model = truth_model.clone();
         if matches!(
@@ -126,6 +134,16 @@ fn check_hole(
                 Some(&format!("{prefix}.to")),
             ));
         }
+    }
+}
+
+fn check_hint(value: &str, field: &str, prefix: &str, diagnostics: &mut Diagnostics) {
+    if value.trim().is_empty() {
+        diagnostics.push(Diagnostic::error(
+            "E0003",
+            format!("hint `{field}` must not be empty"),
+            Some(&format!("{prefix}.hints.{field}")),
+        ));
     }
 }
 

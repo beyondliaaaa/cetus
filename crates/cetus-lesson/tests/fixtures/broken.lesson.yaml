@@ -36,10 +36,11 @@ player_model:
       target: auxiliaries.does_not_exist.eq
       kind: equation
       palette: [efficiency, area, irradiance, "+", "*", "/"]
-      hints: [hint.pv.1, hint.pv.2, hint.pv.3]
+      hints: { q0: hint.pv.0, h1: hint.pv.1, h2: hint.pv.2, h3: hint.pv.3 }
     - id: h_eff
       target: parameters.efficiency.value
       kind: parameter
+      hints: { h1: hint.eff.1, h2: hint.eff.2, h3: hint.eff.3 }
 
 tasks:
   - id: t1

@@ -19,9 +19,8 @@ pub enum Hole {
         /// Blocks offered by the visual builder.
         #[serde(default)]
         palette: Vec<String>,
-        /// Hint-ladder i18n keys.
-        #[serde(default)]
-        hints: Vec<String>,
+        /// Hint ladder; `q0` is optional, `h1`-`h3` are required.
+        hints: HintLadder,
     },
     /// A parameter value the player must estimate or fit.
     Parameter {
@@ -32,9 +31,8 @@ pub enum Hole {
         /// Blocks offered by the visual builder.
         #[serde(default)]
         palette: Vec<String>,
-        /// Hint-ladder i18n keys.
-        #[serde(default)]
-        hints: Vec<String>,
+        /// Hint ladder; `q0` is optional, `h1`-`h3` are required.
+        hints: HintLadder,
     },
     /// A missing connection in a stock-flow graph.
     Link {
@@ -45,9 +43,8 @@ pub enum Hole {
         /// Blocks offered by the visual builder.
         #[serde(default)]
         palette: Vec<String>,
-        /// Hint-ladder i18n keys.
-        #[serde(default)]
-        hints: Vec<String>,
+        /// Hint ladder; `q0` is optional, `h1`-`h3` are required.
+        hints: HintLadder,
     },
     /// A missing rule.
     Rule {
@@ -58,9 +55,8 @@ pub enum Hole {
         /// Blocks offered by the visual builder.
         #[serde(default)]
         palette: Vec<String>,
-        /// Hint-ladder i18n keys.
-        #[serde(default)]
-        hints: Vec<String>,
+        /// Hint ladder; `q0` is optional, `h1`-`h3` are required.
+        hints: HintLadder,
     },
     /// A code hole (a property-checked implementation).
     Code {
@@ -71,9 +67,8 @@ pub enum Hole {
         /// Blocks offered by the visual builder.
         #[serde(default)]
         palette: Vec<String>,
-        /// Hint-ladder i18n keys.
-        #[serde(default)]
-        hints: Vec<String>,
+        /// Hint ladder; `q0` is optional, `h1`-`h3` are required.
+        hints: HintLadder,
     },
     /// A derivation step the player must justify.
     Derivation {
@@ -84,9 +79,8 @@ pub enum Hole {
         /// Blocks offered by the visual builder.
         #[serde(default)]
         palette: Vec<String>,
-        /// Hint-ladder i18n keys.
-        #[serde(default)]
-        hints: Vec<String>,
+        /// Hint ladder; `q0` is optional, `h1`-`h3` are required.
+        hints: HintLadder,
     },
     /// An L1 causal arrow: increasing `from` does what to `to`?
     CausalLink {
@@ -97,6 +91,21 @@ pub enum Hole {
         /// Effect quantity name.
         to: String,
     },
+}
+
+/// The four-rung hint ladder for a hole (§6.4).
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct HintLadder {
+    /// Level-0 question; when absent the checker generates one deterministically.
+    #[serde(default)]
+    pub q0: Option<String>,
+    /// Level-1 direction hint.
+    pub h1: String,
+    /// Level-2 key-relationship hint.
+    pub h2: String,
+    /// Level-3 nearly complete answer.
+    pub h3: String,
 }
 
 impl Hole {
@@ -124,6 +133,20 @@ impl Hole {
             | Self::Rule { target, .. }
             | Self::Code { target, .. }
             | Self::Derivation { target, .. } => Some(target),
+            Self::CausalLink { .. } => None,
+        }
+    }
+
+    /// The hint ladder, if this hole has one.
+    #[must_use]
+    pub fn hints(&self) -> Option<&HintLadder> {
+        match self {
+            Self::Equation { hints, .. }
+            | Self::Parameter { hints, .. }
+            | Self::Link { hints, .. }
+            | Self::Rule { hints, .. }
+            | Self::Code { hints, .. }
+            | Self::Derivation { hints, .. } => Some(hints),
             Self::CausalLink { .. } => None,
         }
     }

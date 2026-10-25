@@ -88,7 +88,7 @@
 - **课程 fixture**：`content/lessons/energy.battery-night/`（正例）与
   `energy.battery-night-broken/`（E5203 + E5401 反例）。
 - **诊断页**：`docs/errors/E5203.md`、`docs/errors/E5401.md`。
-- **测试**：`cetus-lesson` 35、`cetus-verify` 10、`cetus-cli` 5。
+- **测试**：`cetus-lesson` 39、`cetus-verify` 10、`cetus-cli` 5。
 
 ### M3 切片 1 已知限制
 
@@ -99,8 +99,9 @@
    变异杀伤率、判别实验、噪声稳健）尚未实现。
 3. **课程 schema 尚无运行时**：`layers` 与 `teaching` 可解析并通过 V1，但检查器
    求值、观测生成、`lesson-runtime`、实验台 UI 尚未实现。
-4. **`Check.rel_tol` 的字段形状**：指南列出了 `rel_tol` 类型但未给示例，当前按
-   `{ kind: rel_tol, tol: <string> }` 接收。
+4. **容差单位换算未实现**：`RelTol` / `ParamWithin.rel_tol` 现在只接受无量纲数字
+   （0 < tol < 1）；检查器求值时把相对容差换算到模型单位、以及 `AbsTol` 的量纲解析，
+   尚未实现。
 5. **V1 不校验仪器时间与噪声参数**：`instruments[].every`、
    `setup_space.duration.max` 的单位，以及 `noise.sigma` / `resolution` 的正值，
    留到观测生成切片一并实现。
@@ -121,7 +122,8 @@
   `hypothesized`，待 `research-misconceptions` 调研后替换；未填写任何文献条目。
 - **提示阶梯（PR2）**：`holes[].hints` 改为对象 `{ q0?, h1, h2, h3 }`；`q0` 省略时由
   检查器按 §6.4 生成，`h1`–`h3` 必填；V1 用 E0003 校验 key 非空。
-- `rel_tol` 修订随 PR3 落地。
+- **容差（PR3）**：`Check::RelTol` 改为 `tol: f64`；`RelTol` 与
+  `ParamWithin.rel_tol` 由 V1 校验有限且 `0 < tol < 1`（E0003）。
 
 ### M3 评审修复（2026-10-24）
 

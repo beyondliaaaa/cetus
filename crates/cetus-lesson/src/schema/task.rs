@@ -85,10 +85,10 @@ pub enum Check {
         /// Tolerance expression (with units).
         tol: String,
     },
-    /// A prediction is within a relative tolerance.
+    /// A prediction is within a dimensionless relative tolerance.
     RelTol {
-        /// Tolerance expression (with units).
-        tol: String,
+        /// Relative tolerance (0 < tol < 1).
+        tol: f64,
     },
     /// The player's trajectory fits the observed one.
     TrajectoryFit {

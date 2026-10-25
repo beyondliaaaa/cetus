@@ -1,6 +1,6 @@
 //! Schema parsing and strictness tests.
 
-use cetus_lesson::{Hole, Lesson, LessonError, MisconceptionSourceKind};
+use cetus_lesson::{Check, Hole, Lesson, LessonError, MisconceptionSourceKind};
 
 fn fixture(name: &str) -> String {
     let path = format!("{}/tests/fixtures/{name}", env!("CARGO_MANIFEST_DIR"));
@@ -119,6 +119,19 @@ fn given_unknown_hint_field_when_parsed_then_it_is_rejected() {
     );
     let error = Lesson::from_yaml(&broken).expect_err("unknown hint field must be rejected");
     assert!(matches!(error, LessonError::Yaml { .. }));
+}
+
+#[test]
+fn given_rel_tol_check_when_parsed_then_tolerance_is_a_number() {
+    let lesson = Lesson::from_yaml(&fixture("positive.lesson.yaml").replace(
+        "check: { kind: param_within, rel_tol: 0.08 }",
+        "check: { kind: rel_tol, tol: 0.1 }",
+    ))
+    .expect("parse");
+    match &lesson.tasks[2].check {
+        Some(Check::RelTol { tol }) => assert_eq!(*tol, 0.1),
+        other => panic!("expected RelTol, got {other:?}"),
+    }
 }
 
 #[test]

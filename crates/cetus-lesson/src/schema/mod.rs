@@ -161,7 +161,7 @@ pub enum PlayerBase {
 pub struct MisconceptionSource {
     /// Source category.
     pub kind: MisconceptionSourceKind,
-    /// Source reference (`src:<id>`); required unless `kind` is `hypothesized`.
+    /// Source reference (`src:<id>` or `mc:<id>`); required unless `kind` is `hypothesized`.
     #[serde(rename = "ref", default)]
     pub reference: Option<String>,
     /// Optional authoring note.

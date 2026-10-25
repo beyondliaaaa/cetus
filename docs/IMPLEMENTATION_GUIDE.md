@@ -1016,7 +1016,7 @@ narrative:
 - `source.kind`：`research_documented`（教育研究记录）、`exam_item`（考题中稳定出现的
   错误做法）、`historical_theory`（科学史上的错误理论）、`folk_belief`（民间说法）或
   `hypothesized`（推测）。
-- 前四种必须给出 `source.ref: "src:<id>"`；来源库尚未实现，V1 只校验 `src:<id>` 的格式。
+- 前四种必须给出 `source.ref`：`"src:<id>"` 指向 `content/sources/` 的文献条目，或 `"mc:<id>"` 指向 `content/misconceptions/` 的误解目录条目。文献证据在误解目录中维护一次，课程只引用目录条目。来源库尚未实现，V1 只校验 `src:<id>` / `mc:<id>` 的格式。
 - `hypothesized` 的 `ref` 可以为 `null`，但会产生 **W5201** 警告；在模块达到
   `expert_reviewed` 之前必须由专家签字（§8.7）。
 - `teaching[].holds` 引用 `hypothesized` 条目时会产生 **W5202** 警告：原住民的误解应

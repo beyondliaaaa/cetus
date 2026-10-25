@@ -88,13 +88,13 @@
 - **课程 fixture**：`content/lessons/energy.battery-night/`（正例）与
   `energy.battery-night-broken/`（E5203 + E5401 反例）。
 - **诊断页**：`docs/errors/E5203.md`、`docs/errors/E5401.md`。
-- **测试**：`cetus-lesson` 40、`cetus-verify` 11、`cetus-cli` 5。
+- **测试**：`cetus-lesson` 42、`cetus-verify` 11、`cetus-cli` 5。
 
 ### M3 切片 1 已知限制
 
 1. **V1 的内容库引用尚未解析**：模块编译只检查 `fixed` 参数是否声明了 `source`，
    尚未到 `content/params/`、`content/sources/` 中核对来源是否存在；误解
-   `source.ref` 的 `src:<id>` 也只校验格式，不检查 id 是否存在（指南 §8.2）。
+   `source.ref` 的 `src:<id>` / `mc:<id>` 也只校验格式，不检查 id 是否存在（指南 §8.2）。
 2. **`cetus verify` 只实现 V0/V1**：V2–V4（扫描、步长收敛、确定性、行为测试、
    变异杀伤率、判别实验、噪声稳健）尚未实现。
 3. **课程 schema 尚无运行时**：`layers` 与 `teaching` 可解析并通过 V1，但检查器
@@ -115,7 +115,7 @@
 
 - **误解来源（PR1）**：`misconceptions[]` 与 `layers.*.misconceptions[]` 新增必填
   `source: { kind, ref, note? }`；`research_documented` / `exam_item` /
-  `historical_theory` / `folk_belief` 必须给出 `src:<id>`（E5204），
+  `historical_theory` / `folk_belief` 必须给出 `src:<id>` 或 `mc:<id>`（E5204），
   `hypothesized` 可省略 `ref` 但产生 W5201；`teaching[].holds` 引用 hypothesized
   条目时产生 W5202。V6 的专家签字规则已写入指南 §8.7，暂不自动检查。
 - battery-night 的 `m_square`、`m_constant_sun`、`m_load_helps` 暂标为
@@ -128,6 +128,8 @@
   `first_time(charge_pct <= 0)`；判别类任务读仪器量，不读内部存量。规则写入指南
   §6.3 与 M5 的 `design-misconceptions` 要求，并在 `research-misconceptions` 中记为
   M8。
+- **来源引用（PR6）**：`source.ref` 允许 `src:<id>` 或 `mc:<id>`；`mc:` 指向误解目录
+  条目，文献证据在目录里维护一次，课程只引用目录。V1 仍只校验格式。
 
 ### M3 评审修复（2026-10-24）
 

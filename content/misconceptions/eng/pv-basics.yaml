@@ -28,7 +28,7 @@
     diverges_when: { zh-CN: "问电量的最高点和最低点在什么时候：误解预测最满在正午、最空在日落后不久或整个夜里一样空；真模型给出最满在下午（光伏功率降到负荷以下的时刻，或者更早就充满了），最空在日出后光伏功率重新超过负荷的时刻" }
   patch_idea:
     patchable: "yes"
-    sketch: { zh-CN: "把 charge_pct 的观测方程改为跟随光伏功率的形状，例如 pv_power / (efficiency * area * peak_irradiance) 再平移到电量范围，不再积分；或者在 L1 层把“充电 → 电量”画成“光照 → 电量（同步）”。注意：这个补丁改的是观测量而不是存量，要先确认 V4 的自洽性检查能接受“观测与存量脱钩”的误解模型" }
+    sketch: { zh-CN: "把 charge_pct 的观测方程改为跟随光伏功率的形状，例如 pv_power / (efficiency * area * peak_irradiance)，不再积分。课程任务应读取仪器可测量的 charge_pct（t4 已改为 first_time(charge_pct <= 0)），因此这个补丁会让 t4 和 t5 失败；V4 的自洽性检查把误解模型当作真模型、用同一个 patched observable 生成观测，仍会通过" }
     why_not: ""
   discriminating_observation:
     zh-CN: "用电量计连续记录两个星球日，看电量的最低点出现在什么时刻：真模型是日出后一段时间，误解模型是夜里。负荷设得越接近光伏峰值功率，两个时刻相差越远，判别越容易"
@@ -70,7 +70,7 @@
     natives_phrasing_direction: { zh-CN: "原住民把电池当成一个“每晚吐出同样多亮光”的罐子，以为多挂几盏灯，每盏灯就会变暗，但罐子撑的时间不变" }
     natives_right: false
   confidence: medium
-  notes: "可以替换现有的 L1 误解 m_load_helps（“负荷越大充得越快”），它没找到出处。confidence 为 medium，原因是电路研究到储能情境的迁移是推论。"
+  notes: "可以替换现有的 L1 误解 m_load_helps（“负荷越大充得越快”），它没找到出处。需要拆成两条：L1 因果补丁 { c2: irrelevant } 让 l1-1 失败；L2 模型补丁 flows.discharging.eq 固定 800 W 让 t4 失败（t4 的 load=1200 W 必须与 800 W 不同）。teaching.holds 只能引用模型补丁条目，否则 E5401。confidence 为 medium，原因是电路研究到储能情境的迁移是推论。"
 
 - schema: cetus.misconception/0.1
   id: "mc:eng.energy.average-sun"
@@ -133,5 +133,5 @@
     suitable: true
     natives_phrasing_direction: { zh-CN: "原住民说“冷天的太阳更有劲”，玩家第一反应以为是迷信" }
     natives_right: true
-  confidence: medium
-  notes: "M5 要求有硬证据：现在只有一份课程讲义，原理清楚，但需要专家补一份更权威的出处（教材或标准中的温度系数），并给出典型数值。"
+  confidence: low
+  notes: "保留 natives_right: true，因为原住民的说法在事实上是对的；但 M5 要求可靠科学来源，目前只有一份课程讲义。在专家补上教材、标准或同行评议综述之前不得使用这条，已列为专家问题 4。"

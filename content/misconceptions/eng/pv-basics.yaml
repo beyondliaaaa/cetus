@@ -37,7 +37,7 @@
     natives_phrasing_direction: { zh-CN: "原住民认为“太阳的力气是一下子灌进石头里的，太阳最高的时候石头最满，太阳一落山石头就空了”；在日出时发现石头竟然比半夜还空，会让他们很困惑" }
     natives_right: false
   confidence: high
-  notes: "这是本课最有研究支撑的误解，建议替换现有的 m_square 作为课程主误解，并作为 teach-natives-1 的候选。期刊版题名为 initial results，会议版题名为 preliminary results，二者应为同一研究，专家核对后定一个引用。Cronin et al. (2009) 只读了摘要。"
+  notes: "这是本课最有研究支撑的误解，建议作为课程主误解与 teach-natives-1 的候选；m_square 删除后由 V4 变异测试覆盖 t2，不再单独保留。期刊版题名为 initial results，会议版题名为 preliminary results，二者应为同一研究，专家核对后定一个引用。Cronin et al. (2009) 只读了摘要。"
 
 - schema: cetus.misconception/0.1
   id: "mc:phys.em.battery-constant-source"

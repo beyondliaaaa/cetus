@@ -20,7 +20,7 @@
 | `m_load_helps`（L1：负荷越大充得越快） | 没有找到出处 | 用 `mc:phys.em.battery-constant-source` 替换，拆成 L1 因果补丁（`{ c2: irrelevant }`，让 `l1-1` 失败）和 L2 模型补丁（`flows.discharging.eq` 固定 800 W，让 `t4` 失败）；`teaching.holds` 只能引用模型补丁。`t4` 的 load 是 1200 W，必须与 800 W 不同 |
 | （新增）| — | 用 `mc:meta.modeling.stock-follows-inflow` 作为课程主误解，并作为 `teach-natives-1` 原住民所持误解的首选 |
 
-替换后，`must_fail` 的大致对应：存量跟随流入的误解应让 `t4`（预测耗尽时间）和 `t5`（轨迹拟合）失败；电池恒定输出的误解应让 `l1-1`（因果方向）和 `t4` 在改变负荷的设置下失败。具体以 V4 的实际运行结果为准。
+替换后，`must_fail` 的大致对应：存量跟随流入的误解让 `t4`（预测耗尽时间）和 `t5`（轨迹拟合）失败；电池恒定输出的 L1 因果补丁让 `l1-1` 失败，L2 模型补丁让 `t4` 失败（`t4` 的 load 是 1200 W，补丁常数是 800 W）。具体以 V4 的实际运行结果为准。
 
 ## 值得注意的发现
 

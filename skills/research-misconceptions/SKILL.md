@@ -35,7 +35,8 @@ description: Research and catalogue learner misconceptions, historical wrong the
 ## 2. 硬规则
 
 - **M1 不编造**：每条误解都要有你**实际读过**的出处（论文、综述、概念量表的研究、教材中关于常见错误的章节、科学史著作）。找不到出处但你认为合理的，`kind` 写 `hypothesized`，并在 `evidence` 中写“无文献，推测理由：……”。不得编造论文标题、作者、年份、网址或流行率数字。
-- **M2 区分来源类型**：`research_documented`（教育研究中记录的学习者误解）、`historical_theory`（科学史上的错误理论）、`folk_belief`（民间说法）、`hypothesized`（推测）。不要把推测写成有文献支持。
+- **M2 区分来源类型**：`research_documented`（教育研究中记录的学习者误解）、`exam_item`（考题或概念量表中稳定出现的错误做法）、`historical_theory`（科学史上的错误理论）、`folk_belief`（民间说法）、`hypothesized`（推测）。不要把推测写成有文献支持。
+- **M2a 考题来源**：`exam_item` 必须写明题目出处（考试名称、年份、题号，或研究中的题目编号）；只有当这个错法能稳定地写成模型补丁时才收录。
 - **M3 改写，不抄录**：用自己的话概括出处中的内容。引用原文时每条不超过一句短语，并注明出处。
 - **M4 不贴文化标签**：不要把错误理论归属到某个现实中的民族、地区或宗教，只写“历史上曾有人认为”以及具体的学者或时期。原住民是虚构的族群，他们的猜想不影射任何现实文化。
 - **M5 “原住民是对的”要有硬证据**：民间做法后来被证实有效的例子，必须有可靠的科学出处，并写清楚它在什么条件下有效、在什么条件下无效。拿不准就不收。
@@ -49,7 +50,7 @@ schema: cetus.misconception/0.1
 id: "mc:phys.thermo.caloric"                       # mc:<领域>.<子领域>.<短名>，与节点 ID 规则相同
 nodes: ["kg:phys.thermo.heat-vs-temperature", "kg:phys.thermo.heat-capacity"]
 layer: L1                                          # 这个误解主要出现在哪一层：L0 | L1 | L2 | L3
-kind: historical_theory                            # research_documented | historical_theory | folk_belief | hypothesized
+kind: historical_theory                            # research_documented | exam_item | historical_theory | folk_belief | hypothesized
 statement:                                         # 持有者会怎么说（第一人称或转述，口语化）
   zh-CN: "热是一种看不见的流体，从热的东西流进冷的东西；东西装得下的‘热’越多，就越难变热。"
 correct_view:
@@ -162,6 +163,7 @@ evidence:
 ## 8. 自检清单
 
 - [ ] 每条条目都有实际读过的出处，或已标为 `hypothesized` 并写明推测理由（M1、M2）。
+- [ ] `exam_item` 条目写明了题目出处，且错法能稳定地写成模型补丁（M2a）。
 - [ ] 没有编造的论文、作者、年份、网址、流行率（M1）。
 - [ ] 没有大段抄录原文（M3）。
 - [ ] 没有把错误理论归属到现实中的民族、地区或宗教（M4）。

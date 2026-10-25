@@ -1,6 +1,7 @@
 //! V1 static check tests.
 
-use cetus_lesson::{Hole, Lesson, check_static};
+use cetus_compile::Severity;
+use cetus_lesson::{Hole, Lesson, MisconceptionSourceKind, check_static};
 use cetus_model::Model;
 
 fn solar() -> Model {
@@ -19,9 +20,76 @@ fn lesson_fixture(name: &str) -> Lesson {
 }
 
 #[test]
-fn given_positive_lesson_when_checked_statically_then_no_diagnostics_are_reported() {
+fn given_positive_lesson_when_checked_statically_then_only_source_warnings_remain() {
     let diagnostics = check_static(&lesson_fixture("positive.lesson.yaml"), &solar());
-    assert_eq!(diagnostics, [], "{diagnostics:?}");
+    assert!(
+        diagnostics
+            .iter()
+            .all(|diagnostic| diagnostic.severity == Severity::Warning),
+        "{diagnostics:?}"
+    );
+    assert!(diagnostics.iter().any(|diagnostic| {
+        diagnostic.code == "W5201"
+            && diagnostic.path.as_deref() == Some("misconceptions.m_square.source.kind")
+    }));
+    assert!(diagnostics.iter().any(|diagnostic| {
+        diagnostic.code == "W5202"
+            && diagnostic.path.as_deref() == Some("teaching.teach-natives-1.holds")
+    }));
+}
+
+#[test]
+fn given_documented_source_without_ref_when_checked_then_e5204_is_reported() {
+    let mut lesson = lesson_fixture("positive.lesson.yaml");
+    let misconception = lesson
+        .misconceptions
+        .iter_mut()
+        .find(|misconception| misconception.id == "m_square")
+        .expect("m_square");
+    misconception.source.kind = MisconceptionSourceKind::ResearchDocumented;
+    misconception.source.reference = None;
+    let diagnostics = check_static(&lesson, &solar());
+    assert!(diagnostics.iter().any(|diagnostic| {
+        diagnostic.code == "E5204"
+            && diagnostic.path.as_deref() == Some("misconceptions.m_square.source.ref")
+    }));
+}
+
+#[test]
+fn given_documented_source_with_valid_ref_when_checked_then_no_source_error_is_reported() {
+    let mut lesson = lesson_fixture("positive.lesson.yaml");
+    let misconception = lesson
+        .misconceptions
+        .iter_mut()
+        .find(|misconception| misconception.id == "m_square")
+        .expect("m_square");
+    misconception.source.kind = MisconceptionSourceKind::ExamItem;
+    misconception.source.reference = Some("src:exam.2019.q3".to_owned());
+    let diagnostics = check_static(&lesson, &solar());
+    assert!(!diagnostics.iter().any(|diagnostic| {
+        diagnostic.code == "E5204"
+            && diagnostic
+                .path
+                .as_deref()
+                .is_some_and(|path| path.starts_with("misconceptions.m_square.source"))
+    }));
+}
+
+#[test]
+fn given_bad_source_ref_when_checked_then_e5204_is_reported() {
+    let mut lesson = lesson_fixture("positive.lesson.yaml");
+    let misconception = lesson
+        .misconceptions
+        .iter_mut()
+        .find(|misconception| misconception.id == "m_square")
+        .expect("m_square");
+    misconception.source.kind = MisconceptionSourceKind::ResearchDocumented;
+    misconception.source.reference = Some("not-a-src".to_owned());
+    let diagnostics = check_static(&lesson, &solar());
+    assert!(diagnostics.iter().any(|diagnostic| {
+        diagnostic.code == "E5204"
+            && diagnostic.path.as_deref() == Some("misconceptions.m_square.source.ref")
+    }));
 }
 
 #[test]

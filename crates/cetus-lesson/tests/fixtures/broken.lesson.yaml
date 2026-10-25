@@ -66,10 +66,12 @@ tasks:
 misconceptions:
   - id: m_square
     note: "认为功率与辐照度的平方成正比"
+    source: { kind: hypothesized, ref: null, note: "待 research-misconceptions 调研" }
     patch: { auxiliaries.pv_power.eq: "efficiency * area * irradiance^2 / 1000[W/m^2]" }
     must_fail: [t2, t5]
   - id: m_constant_sun
     note: "忽略昼夜，把辐照度当成常数（日均值）"
+    source: { kind: hypothesized, ref: null, note: "待 research-misconceptions 调研" }
     patch: { auxiliaries.irradiance.eq: "peak_irradiance / pi" }
     must_fail: [t4, t5]
 
@@ -99,6 +101,7 @@ layers:
     misconceptions:
       - id: m_load_helps
         note: "以为负荷越大充得越快"
+        source: { kind: hypothesized, ref: null, note: "待 research-misconceptions 调研" }
         patch: { c2: increase }
         must_fail: [l1-1]
   L2:

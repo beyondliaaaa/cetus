@@ -992,10 +992,12 @@ tasks:
 misconceptions:                         # 每个误解模型都必须被至少一个检查器拒绝（V4）
   - id: m_square
     note: "认为功率与辐照度的平方成正比"
+    source: { kind: hypothesized, ref: null, note: "待 research-misconceptions 调研" }
     patch: { auxiliaries.pv_power.eq: "efficiency * area * irradiance^2 / 1000[W/m^2]" }
     must_fail: [t2, t5]
   - id: m_constant_sun
     note: "忽略昼夜，把辐照度当成常数（日均值）"
+    source: { kind: hypothesized, ref: null, note: "待 research-misconceptions 调研" }
     patch: { auxiliaries.irradiance.eq: "peak_irradiance / pi" }
     must_fail: [t4, t5]
 
@@ -1007,6 +1009,17 @@ narrative:
   intro: dialog.whale.battery-night.intro
   outro: dialog.whale.battery-night.outro
 ```
+
+每个误解条目都必须声明来源：
+
+- `source.kind`：`research_documented`（教育研究记录）、`exam_item`（考题中稳定出现的
+  错误做法）、`historical_theory`（科学史上的错误理论）、`folk_belief`（民间说法）或
+  `hypothesized`（推测）。
+- 前四种必须给出 `source.ref: "src:<id>"`；来源库尚未实现，V1 只校验 `src:<id>` 的格式。
+- `hypothesized` 的 `ref` 可以为 `null`，但会产生 **W5201** 警告；在模块达到
+  `expert_reviewed` 之前必须由专家签字（§8.7）。
+- `teaching[].holds` 引用 `hypothesized` 条目时会产生 **W5202** 警告：原住民的误解应
+  优先使用有出处的条目（§6.8.2）。
 
 ### 6.2 检查器类型
 
@@ -1173,6 +1186,7 @@ teaching:
 
 规则：
 - `holds` 引用的误解必须是可运行的模型补丁（`patch` 作用于模型，而不是 L1 的因果箭头补丁），否则报 E5401。L1 的因果误解如果要用于教原住民，需要另写一个与之对应的模型补丁。
+- `holds` 引用 `source.kind: hypothesized` 的误解时给出 W5202 警告；原住民的误解应优先使用有出处的条目（`research_documented` / `exam_item` / `historical_theory` / `folk_belief`）。
 - 原住民的误解应来自真实的学科教育研究（`design-misconceptions` 技能），并经人工整理成原住民的说法。变异测试自动生成的变体可以用来检验课程，但不直接作为原住民的台词。
 - `setup_space` 只能使用课程已声明的仪器和可调参数，不能借此读出隐藏参数（与 V4 的“观测不泄露”一致）。
 
@@ -1652,6 +1666,11 @@ tests:
 | `draft` | 未通过 V5 | 只在开发预览中可见 |
 | `machine_verified` | 通过 V0–V5 + LLM 预审 | “社区预览”分支，标注“机审” |
 | `expert_reviewed` | 再加至少 1 位相应领域专家签名 | 实证科技树主线 |
+
+- **假设性误解来源**：`source.kind: hypothesized` 的误解，在模块达到
+  `expert_reviewed` 之前必须由专家在 `reviews/<module-id>.yaml` 中签字确认；在此之前
+  只能用于 `draft` / `machine_verified` 预览，不得进入主线。M3 只写规则并产生 W5201，
+  不实现自动检查。
 
 ### 8.8 假想实验室的特殊验收
 

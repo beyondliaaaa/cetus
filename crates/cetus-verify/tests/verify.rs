@@ -74,7 +74,30 @@ fn given_solar_module_when_verified_at_v0_then_only_v0_runs() {
 fn given_positive_lesson_when_verified_at_v1_then_it_passes() {
     let report = verify_path(&lesson("energy.battery-night"), Level::V1).expect("verify");
     assert!(report.passed(), "{report:?}");
-    assert_eq!(report.diagnostics, [], "{:?}", report.diagnostics);
+    assert!(
+        report
+            .diagnostics
+            .iter()
+            .all(|diagnostic| diagnostic.severity != Severity::Error),
+        "{:?}",
+        report.diagnostics
+    );
+    assert!(
+        report
+            .diagnostics
+            .iter()
+            .any(|diagnostic| diagnostic.code == "W5201"),
+        "{:?}",
+        report.diagnostics
+    );
+    assert!(
+        report
+            .diagnostics
+            .iter()
+            .any(|diagnostic| diagnostic.code == "W5202"),
+        "{:?}",
+        report.diagnostics
+    );
 }
 
 #[test]

@@ -44,16 +44,22 @@ tasks:
   - { id: t5, kind: fit, check: { kind: trajectory_fit, observable: charge_pct, metric: nrmse, max: 0.05, window: ["0[h]", "72[h]"] } }
 
 misconceptions:
-  - id: m_square
-    note: "认为功率与辐照度的平方成正比"
-    source: { kind: hypothesized, ref: null, note: "待 research-misconceptions 调研" }
-    patch: { auxiliaries.pv_power.eq: "efficiency * area * irradiance^2 / 1000[W/m^2]" }
-    must_fail: [t2, t5]
+  # t2 不再配显式误解：函数形式类错误由 V4 变异测试覆盖（见调研报告）。
+  - id: m_stock_follows_inflow
+    note: "以为电量跟着光伏功率走：太阳最大时最满、日落后最空"
+    source: { kind: research_documented, ref: "mc:meta.modeling.stock-follows-inflow" }
+    patch: { observables.charge_pct.eq: "pv_power / (efficiency * area * peak_irradiance)" }
+    must_fail: [t4, t5]
   - id: m_constant_sun
     note: "忽略昼夜，把辐照度当成常数（日均值）"
-    source: { kind: hypothesized, ref: null, note: "待 research-misconceptions 调研" }
+    source: { kind: hypothesized, ref: null, note: "对应 mc:eng.energy.average-sun；待专家补出处" }
     patch: { auxiliaries.irradiance.eq: "peak_irradiance / pi" }
     must_fail: [t4, t5]
+  - id: m_battery_constant_discharge
+    note: "以为电池按固定速度放电，与负荷无关"
+    source: { kind: research_documented, ref: "mc:phys.em.battery-constant-source" }
+    patch: { flows.discharging.eq: "if charge > 0 then 800[W] else 0" }
+    must_fail: [t4]
 
 mastery:
   node: kg:eng.energy.pv-basics
@@ -79,7 +85,11 @@ layers:
     tasks:
       - { id: l1-1, kind: build, holes: [c1, c2, c3], check: { kind: causal_sign } }
     misconceptions:
-      - { id: m_load_helps, note: "以为负荷越大充得越快", source: { kind: hypothesized, ref: null, note: "待 research-misconceptions 调研" }, patch: { c2: increase }, must_fail: [l1-1] }
+      - id: m_load_irrelevant
+        note: "以为负荷对电量无关：电池按固定速度放电"
+        source: { kind: research_documented, ref: "mc:phys.em.battery-constant-source" }
+        patch: { c2: irrelevant }
+        must_fail: [l1-1]
   L2:
     inherit: base
 
@@ -87,8 +97,8 @@ teaching:
   - id: teach-natives-1
     learner: native
     layer: L0
-    holds: m_constant_sun
-    claim: dialog.native.sun-never-sleeps
+    holds: m_stock_follows_inflow
+    claim: dialog.native.emptiest-at-sunset
     setup_space:
       controls:
         load:     { range: ["0[W]", "2000[W]"] }
@@ -101,9 +111,9 @@ teaching:
       kind: discriminating_experiment
       min_separation: 4.0
       require_prediction: true
-    on_success: dialog.native.sun-never-sleeps.convinced
-    variants: [teach-natives-1b]
+    on_success: dialog.native.emptiest-at-sunset.convinced
 
+  # 1b 持有另一个误解（constant_sun），所以不是 1 的变式：变式必须与主任务 holds 相同（E5401）。
   - id: teach-natives-1b
     learner: native
     layer: L0

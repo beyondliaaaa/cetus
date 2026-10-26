@@ -1,9 +1,12 @@
-//! Module target verification: V0 schema and V1 compilation.
+//! Module target verification: V0 schema, V1 compilation and V2 numerics.
+
+use std::sync::Arc;
 
 use cetus_compile::{Diagnostic, compile_model};
 use cetus_model::Model;
 
 use crate::Level;
+use crate::numeric;
 use crate::report::{CheckResult, Report};
 
 pub(super) fn verify(target: &str, source: &str, level: Level) -> Report {
@@ -38,12 +41,17 @@ pub(super) fn verify(target: &str, source: &str, level: Level) -> Report {
     };
     if level >= Level::V1 {
         match compile_model(&model) {
-            Ok(plan) => report.checks.push(CheckResult {
-                level: Level::V1,
-                name: "model compiles".to_owned(),
-                passed: true,
-                detail: format!("compiled {}@{}", plan.model_id, plan.model_version),
-            }),
+            Ok(plan) => {
+                report.checks.push(CheckResult {
+                    level: Level::V1,
+                    name: "model compiles".to_owned(),
+                    passed: true,
+                    detail: format!("compiled {}@{}", plan.model_id, plan.model_version),
+                });
+                if level >= Level::V2 {
+                    numeric::check(&model, &Arc::new(plan), &mut report);
+                }
+            }
             Err(diagnostics) => {
                 let count = diagnostics.len();
                 report.checks.push(CheckResult {

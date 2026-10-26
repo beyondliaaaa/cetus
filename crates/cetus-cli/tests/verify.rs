@@ -62,12 +62,32 @@ fn given_broken_lesson_when_verified_at_v1_json_then_exit_one_with_codes() {
 }
 
 #[test]
-fn given_v2_level_when_verified_then_exit_two() {
+fn given_positive_lesson_when_verified_at_v2_json_then_exit_zero_and_ok() {
     let output = run(&[
         "verify",
         &lesson("energy.battery-night"),
         "--level",
         "V2",
+        "--report",
+        "json",
+    ]);
+    assert!(
+        output.status.success(),
+        "stderr: {}",
+        String::from_utf8_lossy(&output.stderr)
+    );
+    let json = parsed_stdout(&output);
+    assert_eq!(json["ok"], true);
+    assert_eq!(json["level"], "V2");
+}
+
+#[test]
+fn given_v3_level_when_verified_then_exit_two() {
+    let output = run(&[
+        "verify",
+        &lesson("energy.battery-night"),
+        "--level",
+        "V3",
         "--report",
         "json",
     ]);

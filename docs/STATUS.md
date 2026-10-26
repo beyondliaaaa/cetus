@@ -1,6 +1,6 @@
 # 项目状态
 
-> 更新：2026-10-24 · 对应指南 v0.5.2
+> 更新：2026-10-26 · 对应指南 v0.5.2
 
 ## 已完成
 
@@ -9,7 +9,7 @@
 | M0 基础设施 | 完成 |
 | M1 内核 v0（量纲、表达式、SD） | 完成（`dopri5`/`ros2` 推迟到 M1.5/M6；核心抽象 K5/K6/K8–K12 的接口推迟到首次使用它们的里程碑，见 ADR-0004） |
 | M2 网页实验台 v0 | 完成（真机性能待补测，见「M2 已知限制」） |
-| M3 引导探究与验收 V0–V4 | 进行中（切片 1 完成：lesson schema + verify V0/V1 + CLI） |
+| M3 引导探究与验收 V0–V4 | 进行中（切片 1+2 完成：lesson schema + verify V0–V2 + CLI） |
 
 ## M2 交付
 
@@ -88,15 +88,15 @@
 - **课程 fixture**：`content/lessons/energy.battery-night/`（正例）与
   `energy.battery-night-broken/`（E5203 + E5401 反例）。
 - **诊断页**：`docs/errors/E5203.md`、`docs/errors/E5401.md`。
-- **测试**：`cetus-lesson` 42、`cetus-verify` 11、`cetus-cli` 5。
+- **测试**：`cetus-lesson` 42、`cetus-verify` 18、`cetus-cli` 6。
 
 ### M3 切片 1 已知限制
 
 1. **V1 的内容库引用尚未解析**：模块编译只检查 `fixed` 参数是否声明了 `source`，
    尚未到 `content/params/`、`content/sources/` 中核对来源是否存在；误解
    `source.ref` 的 `src:<id>` / `mc:<id>` 也只校验格式，不检查 id 是否存在（指南 §8.2）。
-2. **`cetus verify` 只实现 V0/V1**：V2–V4（扫描、步长收敛、确定性、行为测试、
-   变异杀伤率、判别实验、噪声稳健）尚未实现。
+2. **`cetus verify` 已实现 V0/V1/V2**：V3–V4（行为测试、变异杀伤率、判别实验、
+   噪声稳健）尚未实现。
 3. **课程 schema 尚无运行时**：`layers` 与 `teaching` 可解析并通过 V1，但检查器
    求值、观测生成、`lesson-runtime`、实验台 UI 尚未实现。
 4. **容差单位换算未实现**：`RelTol` / `ParamWithin.rel_tol` 现在只接受无量纲数字
@@ -114,6 +114,36 @@
    （`m_stock_follows_inflow` → `t4`/`t5`、`m_battery_constant_discharge` → `t4`、
    `m_load_irrelevant` → `l1-1`）都是按模型推算的，V4 的变异与区分力检查尚未实现；
    V4 落地后应把 battery-night 作为第一门复核课程。
+
+### M3 切片 2 交付（2026-10-26）
+
+- **V2 数值验收**：`cetus verify --level V2` 在 V0/V1 之上运行：
+  - 参数扫描：对每个带 `range` 的参数做拉丁超立方采样（默认 64 组 × 4 个种子），
+    抓 NaN/Inf、不变量违反与非有限观测量；
+  - 步长收敛：`dt`、`dt/2`、`dt/4` 的 nrmse 必须单调缩小，`dt` 与 `dt/4` 的
+    nrmse < 1%；
+  - 同种子确定性：同一种子运行两次，状态哈希一致；
+  - 钳制计数：单次抽样运行中某存量超过 50% 的步数被钳制时给 W7201 警告；
+  - 课程目标使用 `truth.overrides` 后的真模型运行同一组检查。
+- **动态存量上界**：`bounds.max` 引用的参数现在在每个宏步按当前状态求值，修复了 V2 扫描
+  改变 `capacity` 后 `charge-bounds` 不变量误报的问题；`cetus-sd` 新增回归测试。
+- **诊断**：新增 `E7201`、`E7202`、`E7203`、`W7201`、`W7202` 及对应页面。
+- **测试**：`cetus-verify` 新增 V2 正例、课程 V2、离散时间跳过收敛、发散模型反例。
+
+### M3 切片 2 已知限制
+
+1. **跨目标确定性未在本地 V2 中执行**：V2 只比较两次 native 运行；native 与 wasm 的
+   哈希一致性仍由 CI 的 `scripts/check-cross-target.sh` 负责（W7202）。
+2. **采样器与阈值固定**：64 组 × 4 个种子、nrmse 1%、单次运行钳制步数占比 50%；
+   尚无按模块覆盖这些默认值的 schema。
+3. **V2 目前只覆盖 SD/ODE**：非 SD 范式会跳过数值扫描；ABM/PDE 等范式落地后需要
+   各自的数值检查。
+4. **步长收敛检查所有观测量**：没有“关键观测量”选择，观测量很多时会偏严格。
+5. **存量边界元数据仍是默认参数值**：`bounds.max` 现在在运行时按当前参数求值，钳制行为
+   正确；但 `StockMeta.bounds` 仍显示编译期默认参数下的上界，参数改变后画布上的范围提示
+   可能过时。
+6. **solar-battery 会触发 W7201**：在部分极端样本（负荷接近 0、面积较大）中，`charge`
+   长时间停在容量边界，单次运行的钳制步数占比约 50%；这是边界饱和提示，V2 仍为 PASS。
 
 ### M3 教学 schema 修订（进行中）
 
@@ -172,7 +202,7 @@ CI 检查 native、wasm 与该文件三者一致（ADR-0001「黄金哈希」）
 
 ### 规模
 
-- Rust 测试：**97** 个通过（含 proptest）；
+- Rust 测试：**176** 个通过（含 proptest 与 doctest）；
 - 前端测试：**51** 个通过（Vitest，8 个测试文件）；
 - 端到端测试：**12** 个通过（Playwright，生产构建，CI 的 web 任务）；
 - wasm 包：758 KB，gzip **290 KB**（§5.13 预算 800 KB）；
@@ -182,14 +212,14 @@ CI 检查 native、wasm 与该文件三者一致（ADR-0001「黄金哈希」）
 
 ## 下一步：M3 剩余工作（§12 M3）
 
-切片 1（schema + V0/V1 + CLI）已完成；剩余：
+切片 1（schema + V0/V1 + CLI）与切片 2（V2 数值验收）已完成；剩余：
 
 1. `cetus-lesson`：仪器与观测生成（噪声子流）、洞的应用、检查器
    （`expr_equiv`、`param_within`、`abs_tol`、`trajectory_fit`、`structure`）；
 2. `packages/lesson-runtime`：任务状态机、提示阶梯、反例驱动提示；
 3. 实验台 UI：仪器面板、观测数据表、预测/对照图、任务列表；
-4. `cetus-verify`：V2（扫描、步长收敛、确定性）、V3（行为测试）、V4（可解性、
-   区分力、变异测试、泄露检查、噪声稳健）；
+4. `cetus-verify`：V3（行为测试）、V4（可解性、区分力、变异测试、泄露检查、
+   噪声稳健）；
 5. 分析层 `ensemble` / `fit`，定稿 K9 `Decision`；
 6. 表示层 `layers`、L0/L1 检查器、因果箭头画布；
 7. 教学任务与 `checkDiscrimination` WASM 接口、判别实验台；
@@ -204,6 +234,8 @@ cargo clippy --workspace --all-targets -- -D warnings
 cargo test --workspace
 cargo run -p cetus-cli -- verify content/lessons/energy.battery-night/lesson.yaml --level V1 --report md
 cargo run -p cetus-cli -- verify content/lessons/energy.battery-night-broken/lesson.yaml --level V1 --report json  # 预期退出 1：E5203 + E5401
+cargo run -p cetus-cli -- verify content/modules/energy/solar-battery/module.yaml --level V2 --report md
+cargo run -p cetus-cli -- verify content/lessons/energy.battery-night/lesson.yaml --level V2 --report md
 ./scripts/check-clippy-rules.sh      # clippy.toml 的 60 条 std 规则确实命中
 ./scripts/check-no-os-rng.sh         # cetus-wasm / cetus-cli 的产物依赖不含 getrandom
 ./scripts/check-cross-target.sh      # native = wasm（一次跑完与分段推进）= golden/hashes.txt

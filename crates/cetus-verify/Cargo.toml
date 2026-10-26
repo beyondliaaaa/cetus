@@ -1,6 +1,6 @@
 [package]
 name = "cetus-verify"
-description = "Verification framework: V0-V1 implemented, V2-V5 planned"
+description = "Verification framework: V0-V2 implemented, V3-V5 planned"
 version.workspace = true
 edition.workspace = true
 rust-version.workspace = true
@@ -13,6 +13,9 @@ workspace = true
 [dependencies]
 cetus-model = { workspace = true }
 cetus-compile = { workspace = true }
+cetus-kernel = { workspace = true }
+cetus-sd = { workspace = true }
+cetus-math = { workspace = true }
 cetus-lesson = { workspace = true }
 serde_json = { workspace = true }
 serde_yaml_ng = { workspace = true }

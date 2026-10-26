@@ -37,8 +37,9 @@
 - **已完成：M0 基础设施、M1 内核 v0、M2 网页实验台 v0**（证据与已知限制见
   [`docs/STATUS.md`](STATUS.md)）。
 - **进行中：M3 引导探究与验收 V0–V4**（§12 M3）。切片 1（`cetus.lesson/0.1`
-  schema、V1 静态检查、`cetus verify` 的 V0/V1 与 Markdown/JSON 报告）已完成；
-  观测生成、检查器、`lesson-runtime`、实验台 UI 与 V2–V4 尚未完成。
+  schema、V1 静态检查、`cetus verify` 的 V0/V1 与 Markdown/JSON 报告）与切片 2
+  （`cetus verify` 的 V2 数值验收：LHS 扫描、步长收敛、同种子确定性、钳制警告）
+  已完成；观测生成、检查器、`lesson-runtime`、实验台 UI 与 V3–V4 尚未完成。
   `dopri5` 与 `ros2` 积分器、教学层、验收框架按 §12 的顺序在 M1.5–M3 补齐。
 - M2 的已知限制：§5.13 的 `runAnalysis` / `enqueueAction` / `exprEquiv` /
   `checkDiscrimination` 尚未实现（随 M3/M8）；方程编辑会丢失 YAML 注释并在成功
@@ -757,7 +758,7 @@ pub trait Subsystem {
 
 #### 5.7.1 SD / ODE（`cetus-sd`，M1）
 - 积分器：`euler`、`rk4`（固定步长）；`dopri5`（宏步内自适应，误差控制参数固定，因此仍然确定）；`ros2`（二阶 Rosenbrock，用于刚性系统：有限差分雅可比 + nalgebra 稠密 LU，适合几百维以内的系统）。
-- 存量边界：`bounds` 编译成两样东西，一是不变量，二是数值钳制，每次钳制都记一条诊断事件（钳制过多说明模型有问题，V2 会报警）。
+- 存量边界：`bounds` 编译成两样东西，一是不变量，二是数值钳制，每次钳制都记一条诊断事件（钳制过多说明模型有问题，V2 会报警）。`bounds.max` 可以引用参数，它在每个宏步按当前参数求值，不在编译期固化；元数据仍给出默认参数下的上界作为显示提示。
 - `delay3` 等函数编译成隐含的内部存量，在 `StateLayout` 里标注为 `hidden`。
 - 样板模型（M1 必须实现并有解析解或文献对照）：指数衰减、logistic 增长、SIR、捕食者–被捕食者（Lotka–Volterra，检查守恒量）、库存–订货延迟振荡、RC 充放电、太阳能板与蓄电池。
 

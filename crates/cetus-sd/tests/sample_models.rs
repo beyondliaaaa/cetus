@@ -158,6 +158,31 @@ fn logistic_map_follows_the_recurrence() {
 }
 
 #[test]
+fn solar_battery_upper_bound_follows_capacity() {
+    let (model, plan) = load("energy/solar-battery/module.yaml");
+    let subsystem = SdSubsystem::new(plan.clone())
+        .with_integrator(model.time.integrator)
+        .expect("integrator");
+    let mut sim = Sim::new(plan.clone(), 1, Box::new(subsystem)).expect("sim");
+    let capacity = 40.0 * 3.6e6;
+    sim.set_param("capacity", capacity).expect("capacity");
+    sim.set_param("load", 0.0).expect("load");
+    sim.add_probe("charge_pct").expect("probe");
+    sim.run_until(plan.time.tick_of(72.0 * 3600.0))
+        .expect("run");
+    let values = &sim.probes()[0].values;
+    let max = values.iter().copied().fold(f64::NEG_INFINITY, f64::max);
+    assert!(
+        max > 0.5,
+        "dynamic upper bound did not follow capacity: max charge_pct = {max}"
+    );
+    assert!(
+        max <= 1.0 + 1e-9,
+        "charge_pct exceeded the dynamic capacity: {max}"
+    );
+}
+
+#[test]
 fn solar_battery_keeps_the_lights_on_for_one_night() {
     let (_, values, _) = run(
         "energy/solar-battery/module.yaml",

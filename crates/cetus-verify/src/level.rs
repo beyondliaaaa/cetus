@@ -9,10 +9,12 @@ pub enum Level {
     V0,
     /// Static checks on top of V0.
     V1,
+    /// Numerical checks on top of V1.
+    V2,
 }
 
 impl Level {
-    /// Parses `V0` or `V1`, case-insensitively.
+    /// Parses `V0`, `V1` or `V2`, case-insensitively.
     ///
     /// # Errors
     /// Returns [`VerifyError::UnsupportedLevel`] for every other input.
@@ -21,6 +23,8 @@ impl Level {
             Ok(Self::V0)
         } else if input.eq_ignore_ascii_case("V1") {
             Ok(Self::V1)
+        } else if input.eq_ignore_ascii_case("V2") {
+            Ok(Self::V2)
         } else {
             Err(VerifyError::UnsupportedLevel(input.to_owned()))
         }
@@ -32,6 +36,7 @@ impl Level {
         match self {
             Self::V0 => "V0",
             Self::V1 => "V1",
+            Self::V2 => "V2",
         }
     }
 }

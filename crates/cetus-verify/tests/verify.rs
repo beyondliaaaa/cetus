@@ -10,10 +10,14 @@ fn content_root() -> PathBuf {
 }
 
 fn solar_module() -> PathBuf {
+    module("energy", "solar-battery")
+}
+
+fn module(domain: &str, name: &str) -> PathBuf {
     content_root()
         .join("modules")
-        .join("energy")
-        .join("solar-battery")
+        .join(domain)
+        .join(name)
         .join("module.yaml")
 }
 
@@ -95,6 +99,73 @@ fn given_positive_lesson_when_verified_at_v1_then_it_passes() {
             .diagnostics
             .iter()
             .any(|diagnostic| diagnostic.code == "W5202"),
+        "{:?}",
+        report.diagnostics
+    );
+}
+
+#[test]
+fn given_solar_module_when_verified_at_v2_then_it_passes() {
+    let report = verify_path(&solar_module(), Level::V2).expect("verify");
+    assert!(report.passed(), "{report:?}");
+    assert!(report.checks.iter().any(|check| check.level == Level::V2));
+    assert!(
+        !report
+            .diagnostics
+            .iter()
+            .any(|diagnostic| diagnostic.severity == Severity::Error),
+        "{:?}",
+        report.diagnostics
+    );
+}
+
+#[test]
+fn given_positive_lesson_when_verified_at_v2_then_it_passes() {
+    let report = verify_path(&lesson("energy.battery-night"), Level::V2).expect("verify");
+    assert!(report.passed(), "{report:?}");
+    assert!(report.checks.iter().any(|check| check.level == Level::V2));
+}
+
+#[test]
+fn given_discrete_time_module_when_verified_at_v2_then_convergence_is_skipped() {
+    let report = verify_path(&module("math", "logistic-map"), Level::V2).expect("verify");
+    assert!(report.passed(), "{report:?}");
+    assert!(
+        report.checks.iter().any(|check| {
+            check.name == "step-size convergence" && check.detail.contains("skipped")
+        }),
+        "{report:?}"
+    );
+}
+
+#[test]
+fn given_divergent_model_when_verified_at_v2_then_it_fails() {
+    let source = r#"
+schema: cetus.model/0.1
+id: test.divergent
+version: 1.0.0
+title: { zh-CN: "发散模型" }
+tier: empirical
+paradigms: [sd]
+time: { unit: h, dt: 0.5, horizon: 100, integrator: euler }
+parameters:
+  rate: { unit: "1/h", value: 1, source: "param:TODO-expert" }
+stocks:
+  x: { unit: "1", initial: "1" }
+flows:
+  growth: { to: x, unit: "1/h", eq: "rate * x * x" }
+observables:
+  x: { unit: "1", eq: "x" }
+"#;
+    let path = write_temp("divergent", source);
+    let report = verify_path(&path, Level::V2).expect("verify");
+    let _ = std::fs::remove_file(&path);
+    assert!(!report.passed(), "{report:?}");
+    assert!(
+        report
+            .diagnostics
+            .iter()
+            .any(|diagnostic| diagnostic.code == "E7201"),
         "{:?}",
         report.diagnostics
     );
@@ -205,12 +276,13 @@ fn given_lesson_with_missing_module_when_verified_at_v1_then_e2101_is_reported()
 }
 
 #[test]
-fn given_v2_level_when_parsed_then_unsupported() {
+fn given_v3_level_when_parsed_then_unsupported() {
     assert!(matches!(
-        Level::parse("V2"),
-        Err(VerifyError::UnsupportedLevel(level)) if level == "V2"
+        Level::parse("V3"),
+        Err(VerifyError::UnsupportedLevel(level)) if level == "V3"
     ));
     assert_eq!(Level::parse("v0").expect("parse v0"), Level::V0);
+    assert_eq!(Level::parse("v2").expect("parse v2"), Level::V2);
 }
 
 #[test]

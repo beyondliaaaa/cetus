@@ -1,12 +1,14 @@
-//! Lesson target verification: V0 schema and V1 static checks.
+//! Lesson target verification: V0 schema, V1 static checks and V2 numerics.
 
 use std::path::{Path, PathBuf};
+use std::sync::Arc;
 
-use cetus_compile::{Diagnostic, Diagnostics, Severity};
-use cetus_lesson::{Lesson, check_static};
+use cetus_compile::{Diagnostic, Diagnostics, Severity, compile_model};
+use cetus_lesson::{Lesson, apply_truth_overrides, check_static};
 use cetus_model::Model;
 
 use crate::Level;
+use crate::numeric;
 use crate::report::{CheckResult, Report};
 
 pub(super) fn verify(target: &str, path: &Path, source: &str, level: Level) -> Report {
@@ -70,7 +72,40 @@ pub(super) fn verify(target: &str, path: &Path, source: &str, level: Level) -> R
             }
         }
     }
+    if level >= Level::V2 {
+        check_numeric(path, &lesson, &mut report);
+    }
     report
+}
+
+fn check_numeric(lesson_path: &Path, lesson: &Lesson, report: &mut Report) {
+    let model = match load_module(lesson_path, lesson) {
+        Ok(model) => model,
+        Err(diagnostic) => {
+            report.checks.push(CheckResult {
+                level: Level::V2,
+                name: "lesson numerics".to_owned(),
+                passed: false,
+                detail: diagnostic.message.clone(),
+            });
+            return;
+        }
+    };
+    let (truth, _overrides) = apply_truth_overrides(lesson, &model);
+    match compile_model(&truth) {
+        Ok(plan) => numeric::check(&truth, &Arc::new(plan), report),
+        Err(diagnostics) => {
+            report.checks.push(CheckResult {
+                level: Level::V2,
+                name: "lesson numerics".to_owned(),
+                passed: false,
+                detail: format!(
+                    "truth model failed to compile: {} diagnostic(s)",
+                    diagnostics.len()
+                ),
+            });
+        }
+    }
 }
 
 fn static_checks(lesson_path: &Path, lesson: &Lesson) -> Result<Diagnostics, Box<Diagnostic>> {

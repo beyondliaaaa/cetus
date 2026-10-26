@@ -14,6 +14,6 @@ pub enum VerifyError {
         source: std::io::Error,
     },
     /// The requested verification level is not implemented by this build.
-    #[error("unsupported verification level `{0}`; this build implements V0 and V1")]
+    #[error("unsupported verification level `{0}`; this build implements V0, V1 and V2")]
     UnsupportedLevel(String),
 }

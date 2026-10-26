@@ -18,7 +18,12 @@ hello dcc2a51fe7fb09bc332796b79f3ad92abe892fe8bcf2a44480d777900cd63fd7
 content/modules/bio/epidemic-sir/module.yaml 7b07b5374ea322c7139ebbbf69d979301cd1753a5dbdf62e61903c7cf2d594df
 content/modules/bio/population-logistic/module.yaml 1739d2070d444fd01493ab0a6f310d12577f553de0bf3f214ddaa99dcfa57f7a
 content/modules/bio/predator-prey/module.yaml 3f4788049c2a2ea259f2bb578fe9e3b52748d2938a261b1541f0775792850655
-content/modules/energy/solar-battery/module.yaml b897679e5ad4b1960fc5f1b40b94c884e2a4b106e00ef471950946c42c57aded
+# 2026-10-26: solar-battery bounds its flows instead of relying on stock clamps.
+# Charging is headroom-limited to (capacity - charge) / dt; discharging at empty
+# is min(load, pv_power). This removes the one-step ping-pong at capacity/empty
+# and makes the worst-clamp parameter sample pass step-size convergence. The
+# state hash moved on purpose; native and wasm agree.
+content/modules/energy/solar-battery/module.yaml 5a7b9e2011ded94a99c28c26c5ee395e361572e2a8054a6e34cacbc0eafc0968
 content/modules/eng/inventory-oscillation/module.yaml 4323626c8f52dc1af4811c6b9744c73d44d55d58950befee6bbed2fd72142aae
 content/modules/math/decay/module.yaml a89ac686532106ffef53c261958202748b1c4fa2e2bf5818a2ac09e5c76fb406
 content/modules/math/logistic-map/module.yaml f09a82850098fe3c992eb730763af78a00e60885ebfba21806a471794c7f6c13

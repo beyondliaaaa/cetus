@@ -216,6 +216,15 @@ pub struct CompiledParameter {
     pub role: ParameterRole,
 }
 
+/// A stock bound evaluated from the current state at runtime.
+#[derive(Debug, Clone)]
+pub struct CompiledBound {
+    /// Bound expression.
+    pub expr: CompiledExpr,
+    /// Converts a dimensionless expression to the stock's SI unit.
+    pub scale: f64,
+}
+
 /// A compiled stock.
 #[derive(Debug, Clone)]
 pub struct CompiledStock {
@@ -225,8 +234,10 @@ pub struct CompiledStock {
     pub slot: usize,
     /// Initial value in SI units.
     pub initial: f64,
-    /// Optional bounds in SI units.
+    /// Bounds in SI units at the parameter defaults, for metadata and fallback.
     pub bounds: Option<(Option<f64>, Option<f64>)>,
+    /// Upper bound evaluated against the current state at each step.
+    pub dynamic_max: Option<CompiledBound>,
     /// Flows that fill this stock.
     pub inflows: Vec<usize>,
     /// Flows that drain this stock.
@@ -581,6 +592,7 @@ pub fn compile_model(model: &Model) -> Result<CompiledPlan, Diagnostics> {
                 None => 0.0,
             };
         let declared = registry.parse(&spec.unit).expect("checked above");
+        let mut dynamic_max = None;
         let bounds = spec.bounds.as_ref().map(|bounds| {
             let min = bounds.min.map(|value| declared.to_si(value));
             let max = bounds.max.as_ref().and_then(|expr| {
@@ -593,14 +605,31 @@ pub fn compile_model(model: &Model) -> Result<CompiledPlan, Diagnostics> {
                 )
                 .map(|typed| {
                     let compiled = compile(&typed);
-                    let raw = evaluate_with_parameters(&compiled, &parameters, slots.len());
-                    if compiled.ty().dim().is_some_and(Dim::is_dimensionless)
+                    let expr_dim = compiled.ty().dim();
+                    let scale = if expr_dim.is_some_and(Dim::is_dimensionless)
                         && !declared.dim().is_dimensionless()
                     {
-                        declared.to_si(raw)
+                        declared.factor()
+                    } else if expr_dim == Some(declared.dim()) {
+                        1.0
                     } else {
-                        raw
-                    }
+                        diagnostics.push(Diagnostic::error(
+                            "E1201",
+                            format!(
+                                "stock `{name}` bound has dimension {}, stock declares {}",
+                                describe_dim(expr_dim),
+                                describe_dim(Some(declared.dim()))
+                            ),
+                            Some(&format!("stocks.{name}.bounds.max")),
+                        ));
+                        1.0
+                    };
+                    let raw = evaluate_with_parameters(&compiled, &parameters, slots.len());
+                    dynamic_max = Some(CompiledBound {
+                        expr: compiled,
+                        scale,
+                    });
+                    raw * scale
                 })
             });
             (min, max)
@@ -610,6 +639,7 @@ pub fn compile_model(model: &Model) -> Result<CompiledPlan, Diagnostics> {
             slot: *slot,
             initial,
             bounds,
+            dynamic_max,
             inflows: Vec::new(),
             outflows: Vec::new(),
         });

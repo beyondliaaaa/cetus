@@ -39,11 +39,11 @@ enum Command {
         /// Path to `module.yaml`.
         path: PathBuf,
     },
-    /// Verify a module or lesson (V0 + V1 in this build).
+    /// Verify a module or lesson (V0–V2 in this build).
     Verify {
         /// Path to `module.yaml` or `lesson.yaml`.
         path: PathBuf,
-        /// Verification level: V0 or V1.
+        /// Verification level: V0, V1 or V2.
         #[arg(long, default_value = "V1")]
         level: String,
         /// Report format(s), comma separated: md, json.

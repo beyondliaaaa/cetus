@@ -315,8 +315,11 @@ name = "cetus-verify"
 version = "0.0.0"
 dependencies = [
  "cetus-compile",
+ "cetus-kernel",
  "cetus-lesson",
+ "cetus-math",
  "cetus-model",
+ "cetus-sd",
  "cetus-testkit",
  "serde_json",
  "serde_yaml_ng",

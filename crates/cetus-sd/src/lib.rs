@@ -154,11 +154,21 @@ impl SdSubsystem {
         }
     }
 
-    fn clamp_bounds(&self, state: &mut [f64], tick: u64, events: &mut EventSink) {
+    fn clamp_bounds(&self, state: &mut [f64], t: f64, tick: u64, events: &mut EventSink) {
         for stock in &self.plan.stocks {
-            let Some((min, max)) = stock.bounds else {
+            let (min, static_max) = stock.bounds.unwrap_or((None, None));
+            let max = stock.dynamic_max.as_ref().map_or(static_max, |bound| {
+                let context = StateContext {
+                    state,
+                    t,
+                    dt: self.plan.time.quantum,
+                    tables: &self.plan.tables,
+                };
+                Some(bound.expr.eval(&context) * bound.scale)
+            });
+            if min.is_none() && max.is_none() {
                 continue;
-            };
+            }
             let before = state[stock.slot];
             let mut after = before;
             if let Some(min) = min
@@ -235,7 +245,7 @@ impl Subsystem for SdSubsystem {
         events: &mut EventSink,
     ) -> Result<(), SimError> {
         self.integrate(state, ctx.t, ctx.h)?;
-        self.clamp_bounds(state, ctx.tick, events);
+        self.clamp_bounds(state, ctx.t + ctx.h, ctx.tick, events);
         Self::compute_auxiliaries(&self.plan, state, ctx.t + ctx.h);
         Self::check_invariants(&self.plan, state, ctx.t + ctx.h, ctx.tick, events)?;
         Ok(())

@@ -110,6 +110,10 @@
 7. **K13 尺度推导未实现**：`EquivOptions.scale` 需要调用方从目标变量的 `scale:`
    取值；未提供时使用纯相对误差。`SlotInfo.scale` 已改为 `Option<f64>`，不再默认
    `1.0`；从 `initial`/`range` 推断尺度仍待 M1.5。
+8. **`must_fail` 尚未经 V4 验证**：battery-night 修订后的 `must_fail`
+   （`m_stock_follows_inflow` → `t4`/`t5`、`m_battery_constant_discharge` → `t4`、
+   `m_load_irrelevant` → `l1-1`）都是按模型推算的，V4 的变异与区分力检查尚未实现；
+   V4 落地后应把 battery-night 作为第一门复核课程。
 
 ### M3 教学 schema 修订（进行中）
 
@@ -118,8 +122,10 @@
   `historical_theory` / `folk_belief` 必须给出 `src:<id>` 或 `mc:<id>`（E5204），
   `hypothesized` 可省略 `ref` 但产生 W5201；`teaching[].holds` 引用 hypothesized
   条目时产生 W5202。V6 的专家签字规则已写入指南 §8.7，暂不自动检查。
-- battery-night 的 `m_square`、`m_constant_sun`、`m_load_helps` 暂标为
-  `hypothesized`，待 `research-misconceptions` 调研后替换；未填写任何文献条目。
+- battery-night 已按调研修订：删除 `m_square`（改由 V4 变异测试覆盖 `t2`）；
+  `m_stock_follows_inflow` 与拆分的 `m_battery_constant_discharge` /
+  `m_load_irrelevant` 引用误解目录（`mc:`）；`m_constant_sun` 保留
+  `hypothesized`（对应 `mc:eng.energy.average-sun`）。
 - **提示阶梯（PR2）**：`holes[].hints` 改为对象 `{ q0?, h1, h2, h3 }`；`q0` 省略时由
   检查器按 §6.4 生成，`h1`–`h3` 必填；V1 用 E0003 校验 key 非空。
 - **容差（PR3）**：`Check::RelTol` 改为 `tol: f64`；`RelTol` 与

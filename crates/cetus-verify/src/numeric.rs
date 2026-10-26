@@ -48,7 +48,7 @@ pub(crate) fn check(model: &Model, plan: &Arc<CompiledPlan>, report: &mut Report
     };
     let sweep = check_sweep(model, plan, horizon, report);
     check_clamp_count(&sweep, report);
-    check_convergence(model, plan, horizon, report);
+    check_convergence(model, plan, horizon, &sweep.worst_params, report);
     check_determinism(model, plan, horizon, report);
 }
 
@@ -64,6 +64,8 @@ struct SweepSummary {
     clamps: BTreeMap<String, usize>,
     max_fraction: BTreeMap<String, f64>,
     steps: usize,
+    worst_params: Vec<(String, f64)>,
+    worst_fraction: f64,
 }
 
 #[derive(Debug)]
@@ -98,6 +100,20 @@ fn check_sweep(
             match run_one(model, plan, horizon, &ranged, sample, seed) {
                 Ok(run) => {
                     summary.steps += run.steps;
+                    let mut run_worst = 0.0_f64;
+                    if run.steps > 0 {
+                        for count in run.clamps.values() {
+                            run_worst = run_worst.max(*count as f64 / run.steps as f64);
+                        }
+                    }
+                    if run_worst > summary.worst_fraction {
+                        summary.worst_fraction = run_worst;
+                        summary.worst_params = ranged
+                            .iter()
+                            .zip(sample)
+                            .map(|((name, _, _), value)| ((*name).to_owned(), *value))
+                            .collect();
+                    }
                     for (name, count) in run.clamps {
                         *summary.clamps.entry(name.clone()).or_default() += count;
                         if run.steps > 0 {
@@ -225,7 +241,13 @@ fn check_clamp_count(sweep: &SweepSummary, report: &mut Report) {
     });
 }
 
-fn check_convergence(model: &Model, plan: &Arc<CompiledPlan>, horizon: f64, report: &mut Report) {
+fn check_convergence(
+    model: &Model,
+    plan: &Arc<CompiledPlan>,
+    horizon: f64,
+    worst_params: &[(String, f64)],
+    report: &mut Report,
+) {
     if model.time.kind != TimeKind::Continuous {
         report.checks.push(CheckResult {
             level: Level::V2,
@@ -249,75 +271,106 @@ fn check_convergence(model: &Model, plan: &Arc<CompiledPlan>, horizon: f64, repo
         ));
         return;
     }
-    let mut runs = Vec::new();
-    for divisor in CONVERGENCE_DT_DIVISORS {
-        let mut variant = model.clone();
-        variant.time.dt = model.time.dt / divisor;
-        let variant_plan = match compile_model(&variant) {
-            Ok(plan) => Arc::new(plan),
-            Err(diagnostics) => {
-                let message = diagnostics
-                    .iter()
-                    .map(cetus_compile::Diagnostic::to_line)
-                    .collect::<Vec<_>>()
-                    .join("; ");
-                report.checks.push(CheckResult {
-                    level: Level::V2,
-                    name: "step-size convergence".to_owned(),
-                    passed: false,
-                    detail: format!("dt/{divisor} failed to compile"),
-                });
-                report.diagnostics.push(
-                    Diagnostic::error(
-                        "E7202",
-                        format!("step-size convergence: dt/{divisor} failed to compile: {message}"),
-                        Some("time.dt"),
-                    )
-                    .with_help("keep the model compilable at smaller steps"),
-                );
-                return;
-            }
-        };
-        match sample_trajectory(&variant_plan, horizon, model.time.integrator) {
-            Ok(samples) => runs.push(samples),
-            Err(error) => {
-                report.checks.push(CheckResult {
-                    level: Level::V2,
-                    name: "step-size convergence".to_owned(),
-                    passed: false,
-                    detail: format!("dt/{divisor} failed to run"),
-                });
-                report.diagnostics.push(
-                    Diagnostic::error(
-                        "E7202",
-                        format!("step-size convergence: dt/{divisor} failed to run: {error}"),
-                        Some("time.dt"),
-                    )
-                    .with_help("fix the numerical failure before checking convergence"),
-                );
-                return;
-            }
-        }
+
+    let mut scenarios: Vec<(&str, &[(String, f64)])> = vec![("default", &[])];
+    if !worst_params.is_empty() {
+        scenarios.push(("worst-clamp sample", worst_params));
     }
+    let scenario_count = scenarios.len();
+
+    let mut series: Vec<(String, String)> = Vec::new();
+    for stock in &plan.stocks {
+        series.push((
+            format!("stock `{}`", stock.name),
+            format!("stock:{}", stock.name),
+        ));
+    }
+    for observable in &plan.observables {
+        series.push((
+            format!("observable `{}`", observable.name),
+            format!("observable:{}", observable.name),
+        ));
+    }
+
     let mut worst = 0.0_f64;
     let mut failures = Vec::new();
-    for observable in &plan.observables {
-        let Some(coarse) = runs[0].get(&observable.name) else {
-            continue;
-        };
-        let Some(mid) = runs[1].get(&observable.name) else {
-            continue;
-        };
-        let Some(fine) = runs[2].get(&observable.name) else {
-            continue;
-        };
-        let coarse_mid = nrmse(coarse, mid);
-        let mid_fine = nrmse(mid, fine);
-        let coarse_fine = nrmse(coarse, fine);
-        worst = worst.max(coarse_fine);
-        let monotonic = coarse_mid + EPSILON >= mid_fine;
-        if !monotonic || coarse_fine > CONVERGENCE_MAX_NRMSE {
-            failures.push((observable.name.clone(), coarse_mid, mid_fine, coarse_fine));
+    for (label, params) in scenarios {
+        let mut runs = Vec::new();
+        for divisor in CONVERGENCE_DT_DIVISORS {
+            let mut variant = model.clone();
+            variant.time.dt = model.time.dt / divisor;
+            let variant_plan = match compile_model(&variant) {
+                Ok(plan) => Arc::new(plan),
+                Err(diagnostics) => {
+                    let message = diagnostics
+                        .iter()
+                        .map(cetus_compile::Diagnostic::to_line)
+                        .collect::<Vec<_>>()
+                        .join("; ");
+                    report.checks.push(CheckResult {
+                        level: Level::V2,
+                        name: "step-size convergence".to_owned(),
+                        passed: false,
+                        detail: format!("dt/{divisor} failed to compile"),
+                    });
+                    report.diagnostics.push(
+                        Diagnostic::error(
+                            "E7202",
+                            format!(
+                                "step-size convergence: dt/{divisor} failed to compile: {message}"
+                            ),
+                            Some("time.dt"),
+                        )
+                        .with_help("keep the model compilable at smaller steps"),
+                    );
+                    return;
+                }
+            };
+            match sample_trajectory(&variant_plan, horizon, model.time.integrator, params) {
+                Ok(samples) => runs.push(samples),
+                Err(error) => {
+                    report.checks.push(CheckResult {
+                        level: Level::V2,
+                        name: "step-size convergence".to_owned(),
+                        passed: false,
+                        detail: format!("dt/{divisor} failed to run"),
+                    });
+                    report.diagnostics.push(
+                        Diagnostic::error(
+                            "E7202",
+                            format!("step-size convergence: dt/{divisor} failed to run: {error}"),
+                            Some("time.dt"),
+                        )
+                        .with_help("fix the numerical failure before checking convergence"),
+                    );
+                    return;
+                }
+            }
+        }
+        for (display, key) in &series {
+            let Some(coarse) = runs[0].get(key) else {
+                continue;
+            };
+            let Some(mid) = runs[1].get(key) else {
+                continue;
+            };
+            let Some(fine) = runs[2].get(key) else {
+                continue;
+            };
+            let coarse_mid = nrmse(coarse, mid);
+            let mid_fine = nrmse(mid, fine);
+            let coarse_fine = nrmse(coarse, fine);
+            worst = worst.max(coarse_fine);
+            let monotonic = coarse_mid + EPSILON >= mid_fine;
+            if !monotonic || coarse_fine > CONVERGENCE_MAX_NRMSE {
+                failures.push((
+                    label.to_owned(),
+                    display.clone(),
+                    coarse_mid,
+                    mid_fine,
+                    coarse_fine,
+                ));
+            }
         }
     }
     let passed = failures.is_empty();
@@ -326,20 +379,23 @@ fn check_convergence(model: &Model, plan: &Arc<CompiledPlan>, horizon: f64, repo
         name: "step-size convergence".to_owned(),
         passed,
         detail: if passed {
-            format!("dt, dt/2, dt/4; worst nrmse {worst:.3e}")
+            format!(
+                "{scenario_count} scenario(s), {} series; worst nrmse {worst:.3e}",
+                series.len()
+            )
         } else {
             format!(
-                "{} observable(s) failed; worst nrmse {worst:.3e}",
+                "{} series check(s) failed; worst nrmse {worst:.3e}",
                 failures.len()
             )
         },
     });
-    for (name, coarse_mid, mid_fine, coarse_fine) in failures.iter().take(3) {
+    for (label, display, coarse_mid, mid_fine, coarse_fine) in failures.iter().take(3) {
         report.diagnostics.push(
             Diagnostic::error(
                 "E7202",
                 format!(
-                    "step-size convergence failed for `{name}`: \
+                    "step-size convergence failed for {display} ({label}): \
                      nrmse(dt,dt/2)={coarse_mid:.3e}, nrmse(dt/2,dt/4)={mid_fine:.3e}, \
                      nrmse(dt,dt/4)={coarse_fine:.3e}"
                 ),
@@ -354,19 +410,27 @@ fn sample_trajectory(
     plan: &Arc<CompiledPlan>,
     horizon: f64,
     integrator: Integrator,
+    params: &[(String, f64)],
 ) -> Result<BTreeMap<String, Vec<f64>>, String> {
     let mut sim = make_sim(plan, integrator, SWEEP_SEEDS[0]).map_err(|error| error.to_string())?;
+    for (name, value) in params {
+        sim.set_param(name, *value)
+            .map_err(|error| error.to_string())?;
+    }
     let target = plan.time.tick_of(horizon);
-    let mut samples: BTreeMap<String, Vec<f64>> = plan
-        .observables
-        .iter()
-        .map(|observable| {
-            (
-                observable.name.clone(),
-                Vec::with_capacity(CONVERGENCE_SAMPLES),
-            )
-        })
-        .collect();
+    let mut samples: BTreeMap<String, Vec<f64>> = BTreeMap::new();
+    for stock in &plan.stocks {
+        samples.insert(
+            format!("stock:{}", stock.name),
+            Vec::with_capacity(CONVERGENCE_SAMPLES),
+        );
+    }
+    for observable in &plan.observables {
+        samples.insert(
+            format!("observable:{}", observable.name),
+            Vec::with_capacity(CONVERGENCE_SAMPLES),
+        );
+    }
     for index in 0..CONVERGENCE_SAMPLES {
         let fraction = if CONVERGENCE_SAMPLES <= 1 {
             0.0
@@ -375,6 +439,18 @@ fn sample_trajectory(
         };
         let tick = plan.time.tick_of(horizon * fraction).min(target);
         sim.run_until(tick).map_err(|error| error.to_string())?;
+        for stock in &plan.stocks {
+            let value = sim
+                .stock(&stock.name)
+                .ok_or_else(|| format!("unknown stock `{}`", stock.name))?;
+            if !value.is_finite() {
+                return Err(format!("stock `{}` is not finite", stock.name));
+            }
+            samples
+                .get_mut(&format!("stock:{}", stock.name))
+                .expect("stock was inserted above")
+                .push(value);
+        }
         for observable in &plan.observables {
             let value = sim
                 .observable(&observable.name)
@@ -383,7 +459,7 @@ fn sample_trajectory(
                 return Err(format!("observable `{}` is not finite", observable.name));
             }
             samples
-                .get_mut(&observable.name)
+                .get_mut(&format!("observable:{}", observable.name))
                 .expect("observable was inserted above")
                 .push(value);
         }

@@ -467,15 +467,15 @@ stocks:
   charge:
     unit: "kW*h"
     initial: "0.5 * capacity"
-    bounds: { min: 0, max: capacity }      # 编译成不变量，并在数值上钳制（会记一条 clamp 事件）
+    bounds: { min: 0, max: capacity }      # max 引用参数、运行时求值；编译成不变量并数值钳制
 
 auxiliaries:
   irradiance: { unit: "W/m^2", eq: "peak_irradiance * max(0, sin(2*pi*time/day_length))" }
   pv_power:   { unit: W,       eq: "efficiency * area * irradiance" }
 
 flows:
-  charging:    { to: charge,   unit: W, eq: "if charge < capacity then pv_power else 0" }
-  discharging: { from: charge, unit: W, eq: "if charge > 0 then load else 0" }
+  charging:    { to: charge,   unit: W, eq: "max(0, min(pv_power, (capacity - charge) / dt))" }
+  discharging: { from: charge, unit: W, eq: "if charge > 0 then load else min(load, pv_power)" }
 
 ports:
   power_out:

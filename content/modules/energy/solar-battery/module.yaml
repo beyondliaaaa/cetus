@@ -43,11 +43,11 @@ flows:
   charging:
     to: charge
     unit: W
-    eq: "if charge < capacity then pv_power else 0"
+    eq: "max(0, min(pv_power, (capacity - charge) / dt))"
   discharging:
     from: charge
     unit: W
-    eq: "if charge > 0 then load else 0"
+    eq: "if charge > 0 then load else min(load, pv_power)"
 
 observables:
   charge_pct: { unit: "1", eq: "charge / capacity", display: percent }

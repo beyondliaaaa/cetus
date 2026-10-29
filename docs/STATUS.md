@@ -88,7 +88,7 @@
 - **课程 fixture**：`content/lessons/energy.battery-night/`（正例）与
   `energy.battery-night-broken/`（E5203 + E5401 反例）。
 - **诊断页**：`docs/errors/E5203.md`、`docs/errors/E5401.md`。
-- **测试**：`cetus-lesson` 42、`cetus-verify` 18、`cetus-cli` 6。
+- **测试**：`cetus-lesson` 45、`cetus-verify` 18、`cetus-cli` 6。
 
 ### M3 切片 1 已知限制
 
@@ -173,6 +173,10 @@
   M8。
 - **来源引用（PR6）**：`source.ref` 允许 `src:<id>` 或 `mc:<id>`；`mc:` 指向误解目录
   条目，文献证据在目录里维护一次，课程只引用目录。V1 仍只校验格式。
+- **初值键与范围表达式（PR7）**：`tasks[].setup.initial` 与
+  `teaching[].setup_space.initial` 的键必须是存量（E5205）；`setup_space.initial.range`
+  改为表达式，可引用模型参数，V1 校验量纲（E1201）；battery-night 改为
+  `charge: { range: ["0.2 * capacity", "capacity"] }`。
 
 ### M3 评审修复（2026-10-24）
 
@@ -209,7 +213,7 @@ CI 检查 native、wasm 与该文件三者一致（ADR-0001「黄金哈希」）
 
 ### 规模
 
-- Rust 测试：**178** 个通过（含 proptest 与 doctest）；
+- Rust 测试：**181** 个通过（含 proptest 与 doctest）；
 - 前端测试：**51** 个通过（Vitest，8 个测试文件）；
 - 端到端测试：**12** 个通过（Playwright，生产构建，CI 的 web 任务）；
 - wasm 包：758 KB，gzip **290 KB**（§5.13 预算 800 KB）；

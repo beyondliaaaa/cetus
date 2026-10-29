@@ -31,7 +31,7 @@ pub fn check_static(lesson: &Lesson, base_model: &Model) -> Diagnostics {
     check_instruments(lesson, &names, &mut diagnostics);
     holes::check_base(lesson, &truth_model, &names, &mut diagnostics);
     holes::check_layers(lesson, &truth_model, &names, &mut diagnostics);
-    teaching::check(lesson, &truth_model, &mut diagnostics);
+    teaching::check(lesson, &truth_model, &plan, &mut diagnostics);
     diagnostics
 }
 

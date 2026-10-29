@@ -1,6 +1,6 @@
 # ADR-0006：K3 分析层与轨迹查询接口
 
-- 状态：草案（2026-10-26 修订，待人工评审；未合并）
+- 状态：草案（2026-10-26 修订；7 项评审结论已确认，剩余接口问题待评审；未合并）
 - 相关：ADR-0004（K3/K4）、§5.2、§5.5、§5.13、§6.2、§6.3、§8.4、§12 M3
 - 取代：无（本 ADR 定稿 ADR-0004 中推迟到 M3 的 K3；批准后同步更新 ADR-0004）
 
@@ -406,8 +406,8 @@ pub trait AnalysisEvents {
 }
 ```
 
-取消是 UI 的需求，等 lesson-runtime 落地时再写 ADR 扩展，不在第一版增加
-`Result`/取消状态。
+取消是 UI 的需求；未来加一个带默认实现的取消方法不算破坏性修改，所以现在不加，
+也不在第一版增加 `Result`/取消状态。
 
 ### 9. `Sweep` 输出
 
@@ -417,7 +417,21 @@ pub trait AnalysisEvents {
   `Time × Parameter` 全轨迹。
 - V3 的弹性/单调性测试用 `reduce` 表达，例如 `mean(pv_power)`。
 
-## 待评审的问题
+## 评审结论（2026-10-26）
+
+以下 7 项已经人工确认：
+
+| # | 结论 |
+|---|---|
+| 1 | `Analysis::run` 使用 `&Arc<CompiledPlan>`；已在 ADR-0004 记一笔。 |
+| 2 | `AnalysisCfg` 保持带单位的值映射；每个分析提供强类型解析函数，未知键报错，不能静默忽略。 |
+| 3 | `Sweep` 只输出每个参数点的最终值和 `reduce` 结果，V3 够用。 |
+| 4 | **`first_time` 返回 `Option<QueryValue>`（SI 值 + 单位）**，不返回显示单位的裸数字；所有查询统一 SI + 单位。 |
+| 5 | `min`/`mean`/`max_where`/`value_at` 返回 SI 值 + 单位。 |
+| 6 | 采用 `CompiledQuery`：查询表达式先编译、再求值；判别实验要值 256 次，必须有这个能力。 |
+| 7 | `AnalysisEvents` 第一版只有进度；未来加一个带默认实现的取消方法不算破坏性修改，现在不用加。 |
+
+## 剩余待评审问题
 
 1. **`AnalysisError`**：为了让强类型解析的 `CfgError` 有地方落，`Analysis::run` 的返回
    从 `Result<Dataset, SimError>` 改成 `Result<Dataset, AnalysisError>`。是否接受？
@@ -431,7 +445,6 @@ pub trait AnalysisEvents {
 5. **`SimInit::Expression` 的作用域**：第一版只允许参数引用；是否需要允许其他存量？
    本版建议只允许参数，避免初值之间的顺序依赖。
 6. **`Sweep` 的操作序列**：每个参数点复用同一组操作（时间相对零点），是否足够？
-7. **`AnalysisEvents`**：第一版只有进度、没有取消，是否同意？
 
 ## 后果
 

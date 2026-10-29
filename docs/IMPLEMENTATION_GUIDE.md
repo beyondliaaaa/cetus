@@ -474,7 +474,7 @@ auxiliaries:
   pv_power:   { unit: W,       eq: "efficiency * area * irradiance" }
 
 flows:
-  charging:    { to: charge,   unit: W, eq: "max(0, min(pv_power, (capacity - charge) / dt))" }
+  charging:    { to: charge,   unit: W, eq: "if charge < capacity then pv_power else min(pv_power, load)" }
   discharging: { from: charge, unit: W, eq: "if charge > 0 then load else min(load, pv_power)" }
 
 ports:

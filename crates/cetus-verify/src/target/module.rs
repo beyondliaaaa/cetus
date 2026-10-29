@@ -2,7 +2,7 @@
 
 use std::sync::Arc;
 
-use cetus_compile::{Diagnostic, compile_model};
+use cetus_compile::{Diagnostic, Severity, compile_model_with_warnings};
 use cetus_model::Model;
 
 use crate::Level;
@@ -40,27 +40,39 @@ pub(super) fn verify(target: &str, source: &str, level: Level) -> Report {
         }
     };
     if level >= Level::V1 {
-        match compile_model(&model) {
-            Ok(plan) => {
+        let (plan, diagnostics) = compile_model_with_warnings(&model);
+        let errors = diagnostics
+            .iter()
+            .filter(|diagnostic| diagnostic.severity == Severity::Error)
+            .count();
+        let warnings = diagnostics.len() - errors;
+        report.diagnostics.extend(diagnostics);
+        match plan {
+            Some(plan) => {
                 report.checks.push(CheckResult {
                     level: Level::V1,
                     name: "model compiles".to_owned(),
                     passed: true,
-                    detail: format!("compiled {}@{}", plan.model_id, plan.model_version),
+                    detail: if warnings == 0 {
+                        format!("compiled {}@{}", plan.model_id, plan.model_version)
+                    } else {
+                        format!(
+                            "compiled {}@{}; {warnings} warning(s)",
+                            plan.model_id, plan.model_version
+                        )
+                    },
                 });
                 if level >= Level::V2 {
                     numeric::check(&model, &Arc::new(plan), &mut report);
                 }
             }
-            Err(diagnostics) => {
-                let count = diagnostics.len();
+            None => {
                 report.checks.push(CheckResult {
                     level: Level::V1,
                     name: "model compiles".to_owned(),
                     passed: false,
-                    detail: format!("{count} diagnostic(s)"),
+                    detail: format!("{errors} diagnostic(s)"),
                 });
-                report.diagnostics.extend(diagnostics);
             }
         }
     }

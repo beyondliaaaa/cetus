@@ -10,7 +10,7 @@ use std::path::{Path, PathBuf};
 use std::process::ExitCode;
 use std::sync::Arc;
 
-use cetus_compile::{CompiledPlan, Severity, compile_model};
+use cetus_compile::{CompiledPlan, Diagnostic, Severity, compile_model_with_warnings};
 use cetus_kernel::{Column, Dataset, DimAxis, Sim};
 use cetus_model::Model;
 use cetus_sd::SdSubsystem;
@@ -177,62 +177,65 @@ fn load_model(path: &Path) -> Result<Model, u8> {
 }
 
 fn compile_or_report(model: &Model, json: bool) -> Result<CompiledPlan, u8> {
-    match compile_model(model) {
-        Ok(plan) => {
-            if json {
-                println!(
-                    "{}",
-                    serde_json::json!({
-                        "ok": true,
-                        "model": plan.model_id,
-                        "version": plan.model_version,
-                        "stocks": plan.stocks.len(),
-                        "parameters": plan.parameters.len(),
-                        "auxiliaries": plan.auxiliaries.len(),
-                        "flows": plan.flows.len(),
-                        "observables": plan.observables.len(),
-                        "quantum_s": plan.time.quantum,
-                    })
-                );
-            } else {
-                println!(
-                    "ok: {}@{} ({} stocks, {} parameters, {} flows)",
-                    plan.model_id,
-                    plan.model_version,
-                    plan.stocks.len(),
-                    plan.parameters.len(),
-                    plan.flows.len()
-                );
+    let (plan, diagnostics) = compile_model_with_warnings(model);
+    let Some(plan) = plan else {
+        if json {
+            let payload = serde_json::json!({
+                "ok": false,
+                "diagnostics": diagnostics.iter().map(diagnostic_json).collect::<Vec<_>>(),
+            });
+            println!("{payload}");
+        } else {
+            for diagnostic in &diagnostics {
+                eprintln!("{}", diagnostic.to_line());
             }
-            Ok(plan)
         }
-        Err(diagnostics) => {
-            if json {
-                let payload = serde_json::json!({
-                    "ok": false,
-                    "diagnostics": diagnostics.iter().map(|diagnostic| {
-                        serde_json::json!({
-                            "code": diagnostic.code,
-                            "severity": match diagnostic.severity {
-                                Severity::Error => "error",
-                                Severity::Warning => "warning",
-                            },
-                            "path": diagnostic.path,
-                            "message": diagnostic.message,
-                            "span": diagnostic.span,
-                            "help": diagnostic.help,
-                        })
-                    }).collect::<Vec<_>>(),
-                });
-                println!("{payload}");
-            } else {
-                for diagnostic in &diagnostics {
-                    eprintln!("{}", diagnostic.to_line());
-                }
-            }
-            Err(1)
+        return Err(1);
+    };
+    if json {
+        println!(
+            "{}",
+            serde_json::json!({
+                "ok": true,
+                "model": plan.model_id,
+                "version": plan.model_version,
+                "stocks": plan.stocks.len(),
+                "parameters": plan.parameters.len(),
+                "auxiliaries": plan.auxiliaries.len(),
+                "flows": plan.flows.len(),
+                "observables": plan.observables.len(),
+                "quantum_s": plan.time.quantum,
+                "diagnostics": diagnostics.iter().map(diagnostic_json).collect::<Vec<_>>(),
+            })
+        );
+    } else {
+        for diagnostic in &diagnostics {
+            eprintln!("{}", diagnostic.to_line());
         }
+        println!(
+            "ok: {}@{} ({} stocks, {} parameters, {} flows)",
+            plan.model_id,
+            plan.model_version,
+            plan.stocks.len(),
+            plan.parameters.len(),
+            plan.flows.len()
+        );
     }
+    Ok(plan)
+}
+
+fn diagnostic_json(diagnostic: &Diagnostic) -> serde_json::Value {
+    serde_json::json!({
+        "code": diagnostic.code,
+        "severity": match diagnostic.severity {
+            Severity::Error => "error",
+            Severity::Warning => "warning",
+        },
+        "path": diagnostic.path,
+        "message": diagnostic.message,
+        "span": diagnostic.span,
+        "help": diagnostic.help,
+    })
 }
 
 fn check(path: &Path, json: bool) -> Result<(), u8> {

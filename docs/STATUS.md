@@ -121,25 +121,28 @@
   - 参数扫描：对每个带 `range` 的参数做拉丁超立方采样（默认 64 组 × 4 个种子），
     抓 NaN/Inf、不变量违反与非有限观测量；
   - 步长收敛：`dt`、`dt/2`、`dt/4` 的 nrmse 必须单调缩小，`dt` 与 `dt/4` 的
-    nrmse < 1%；
+    nrmse < 1%；默认 + 最坏钳制样本，各比较 128 个采样点与全部存量/观测量；
   - 同种子确定性：同一种子运行两次，状态哈希一致；
   - 钳制计数：单次抽样运行中某存量超过 50% 的步数被钳制时给 W7201 警告；
   - 课程目标使用 `truth.overrides` 后的真模型运行同一组检查。
 - **动态存量上界**：`bounds.max` 引用的参数现在在每个宏步按当前状态求值，修复了 V2 扫描
   改变 `capacity` 后 `charge-bounds` 不变量误报的问题；`cetus-sd` 新增回归测试。
-- **solar-battery 边界抖动修复**：充电改为按剩余容量限幅
-  `max(0, min(pv_power, (capacity - charge) / dt))`，空电放电取 `min(load, pv_power)`；
-  单次运行的最大钳制步数占比从约 50% 降到约 0.3%，worst-clamp 样本也通过步长收敛。
-  黄金哈希按 ADR-0001 更新（仅 `solar-battery`）。
-- **诊断**：新增 `E7201`、`E7202`、`E7203`、`W7201`、`W7202` 及对应页面。
+- **solar-battery 边界抖动修复（去 dt）**：充电改为
+  `if charge < capacity then pv_power else min(pv_power, load)`，空电放电取
+  `min(load, pv_power)`；上限允许一步钳制（O(dt) 误差），单次运行最大钳制步数占比
+  约 0.5%，worst-clamp 样本在 128 点收敛采样下通过。黄金哈希按 ADR-0001 更新
+  （去掉 `dt` 依赖，仅 `solar-battery`）。
+- **W2001**：flows/auxiliaries/observables 的方程引用 `dt` 时给出警告；
+  solar-battery 已按 SD 惯例去掉 `dt`，不再触发。
+- **诊断**：新增 `E7201`、`E7202`、`E7203`、`W2001`、`W7201`、`W7202` 及对应页面。
 - **测试**：`cetus-verify` 新增 V2 正例、课程 V2、离散时间跳过收敛、发散模型反例。
 
 ### M3 切片 2 已知限制
 
 1. **跨目标确定性未在本地 V2 中执行**：V2 只比较两次 native 运行；native 与 wasm 的
    哈希一致性仍由 CI 的 `scripts/check-cross-target.sh` 负责（W7202）。
-2. **采样器与阈值固定**：64 组 × 4 个种子、nrmse 1%、单次运行钳制步数占比 50%；
-   尚无按模块覆盖这些默认值的 schema。
+2. **采样器与阈值固定**：64 组 × 4 个种子、收敛 128 点、nrmse 1%、单次运行钳制
+   步数占比 50%；尚无按模块覆盖这些默认值的 schema。
 3. **V2 目前只覆盖 SD/ODE**：非 SD 范式会跳过数值扫描；ABM/PDE 等范式落地后需要
    各自的数值检查。
 4. **步长收敛检查所有观测量**：没有“关键观测量”选择，观测量很多时会偏严格。
@@ -206,7 +209,7 @@ CI 检查 native、wasm 与该文件三者一致（ADR-0001「黄金哈希」）
 
 ### 规模
 
-- Rust 测试：**176** 个通过（含 proptest 与 doctest）；
+- Rust 测试：**178** 个通过（含 proptest 与 doctest）；
 - 前端测试：**51** 个通过（Vitest，8 个测试文件）；
 - 端到端测试：**12** 个通过（Playwright，生产构建，CI 的 web 任务）；
 - wasm 包：758 KB，gzip **290 KB**（§5.13 预算 800 KB）；

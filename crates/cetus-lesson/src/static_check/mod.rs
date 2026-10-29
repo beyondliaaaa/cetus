@@ -9,7 +9,7 @@ mod teaching;
 
 use std::collections::BTreeSet;
 
-use cetus_compile::{CompiledPlan, Diagnostic, Diagnostics, compile_model};
+use cetus_compile::{CompiledPlan, Diagnostic, Diagnostics, compile_model_with_warnings};
 use cetus_model::Model;
 
 use crate::patch::apply_truth_overrides;
@@ -18,16 +18,14 @@ use crate::schema::{Layer, LayerId, Lesson};
 /// Runs every V1 static check for `lesson` against `base_model`.
 ///
 /// Codes emitted by this crate are `E2101`, `E5203`, `E5401` and `E0003`; any
-/// other diagnostic comes from `compile_model`.
+/// other diagnostic comes from the compiler.
 #[must_use]
 pub fn check_static(lesson: &Lesson, base_model: &Model) -> Diagnostics {
     let (truth_model, mut diagnostics) = apply_truth_overrides(lesson, base_model);
-    let plan = match compile_model(&truth_model) {
-        Ok(plan) => plan,
-        Err(errors) => {
-            diagnostics.extend(errors);
-            return diagnostics;
-        }
+    let (plan, compile_diagnostics) = compile_model_with_warnings(&truth_model);
+    diagnostics.extend(compile_diagnostics);
+    let Some(plan) = plan else {
+        return diagnostics;
     };
     let names = model_names(&plan);
     check_instruments(lesson, &names, &mut diagnostics);

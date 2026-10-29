@@ -1051,6 +1051,7 @@ narrative:
 - 观测**不能**泄露隐藏参数：仪器只暴露 `measures` 中声明的变量。
 - 更难的课可以使用间接测量（例如只能测电压和电流，要自己算功率）。
 - **任务读仪器量，不读内部存量**：判别“某样东西怎样”的误解时，任务应读取仪器实际测量的量（观测量/仪器可读量），不要读模型内部存量。否则误解只改观测量时，任务仍读真值，判别会失效。例：battery-night 的 `t4` 用 `first_time(charge_pct <= 0)`，而不是 `charge`。这条规则也适用于判别实验与后续的 `design-misconceptions` 技能。
+- **设置初值用存量，读取结果用仪器量**：`tasks[].setup.initial` 与 `teaching[].setup_space.initial` 的键必须是存量名；观测量只用于读取，不作为初值键。`setup_space.initial` 的范围可以写成引用模型参数的表达式，例如 `charge: { range: ["0.2 * capacity", "capacity"] }`；无量纲值按存量的声明单位解释，带量纲时量纲必须与存量一致。
 - **以真实数据为真值**（H3）：`truth` 也可以是一个数据集，而不是模型：
 
 ```yaml
@@ -1164,7 +1165,7 @@ teaching:
         load:     { range: ["0[W]", "2000[W]"] }
         capacity: { range: ["5[kW*h]", "40[kW*h]"] }
       initial:
-        charge_pct: { range: [0.2, 1.0] }
+        charge: { range: ["0.2 * capacity", "capacity"] }
       instruments: [battery_gauge, lux_meter, power_meter]   # 只能选课程已声明的仪器
       duration: { max: "52[h]" }          # 最多观察两个星球日
     check:

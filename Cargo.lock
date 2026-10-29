@@ -234,6 +234,7 @@ version = "0.0.0"
 dependencies = [
  "cetus-compile",
  "cetus-model",
+ "cetus-units",
  "indexmap",
  "serde",
  "serde_yaml_ng",

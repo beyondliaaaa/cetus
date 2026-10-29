@@ -2,13 +2,19 @@
 
 use std::collections::BTreeSet;
 
-use cetus_compile::{Diagnostic, Diagnostics};
+use cetus_compile::{CompiledPlan, Diagnostic, Diagnostics, parse_in_plan};
 use cetus_model::{Model, ParameterRole};
+use cetus_units::Dim;
 
 use crate::patch::set_model_path;
-use crate::schema::{Hole, Lesson, Scenario, SetupSpace, TeachingTask};
+use crate::schema::{Hole, InitialRange, Lesson, Scenario, SetupSpace, TeachingTask};
 
-pub(super) fn check(lesson: &Lesson, truth_model: &Model, diagnostics: &mut Diagnostics) {
+pub(super) fn check(
+    lesson: &Lesson,
+    truth_model: &Model,
+    plan: &CompiledPlan,
+    diagnostics: &mut Diagnostics,
+) {
     for task in &lesson.teaching {
         match task {
             TeachingTask::Native {
@@ -20,6 +26,7 @@ pub(super) fn check(lesson: &Lesson, truth_model: &Model, diagnostics: &mut Diag
             } => check_native(
                 lesson,
                 truth_model,
+                plan,
                 id,
                 holds,
                 setup_space,
@@ -36,9 +43,11 @@ pub(super) fn check(lesson: &Lesson, truth_model: &Model, diagnostics: &mut Diag
     }
 }
 
+#[allow(clippy::too_many_arguments)]
 fn check_native(
     lesson: &Lesson,
     truth_model: &Model,
+    plan: &CompiledPlan,
     id: &str,
     holds: &str,
     setup_space: &SetupSpace,
@@ -77,7 +86,7 @@ fn check_native(
             .with_help("replace it once research-misconceptions finds a sourced entry"),
         );
     }
-    check_setup_space(lesson, truth_model, id, setup_space, diagnostics);
+    check_setup_space(lesson, truth_model, plan, id, setup_space, diagnostics);
     check_variants(lesson, id, holds, variants, diagnostics);
 }
 
@@ -101,6 +110,7 @@ fn holds_applies(lesson: &Lesson, truth_model: &Model, holds: &str) -> bool {
 fn check_setup_space(
     lesson: &Lesson,
     truth_model: &Model,
+    plan: &CompiledPlan,
     id: &str,
     setup_space: &SetupSpace,
     diagnostics: &mut Diagnostics,
@@ -142,16 +152,22 @@ fn check_setup_space(
             ));
         }
     }
-    for name in setup_space.initial.keys() {
-        let known =
-            truth_model.stocks.contains_key(name) || truth_model.observables.contains_key(name);
-        if !known {
+    for (name, range) in &setup_space.initial {
+        if !truth_model.stocks.contains_key(name) {
             diagnostics.push(Diagnostic::error(
-                "E5401",
-                format!("teaching task `{id}` initial value `{name}` is not a stock or observable"),
+                "E5205",
+                format!("teaching task `{id}` initial value `{name}` is not a stock"),
                 Some(&format!("teaching.{id}.setup_space.initial.{name}")),
             ));
+            continue;
         }
+        check_initial_range(
+            name,
+            range,
+            plan,
+            &format!("teaching.{id}.setup_space.initial.{name}"),
+            diagnostics,
+        );
     }
     if setup_space.duration.is_none() && setup_space.inherit.is_none() {
         diagnostics.push(
@@ -162,6 +178,49 @@ fn check_setup_space(
             )
             .with_help("set setup_space.duration.max or inherit another teaching task's setup"),
         );
+    }
+}
+
+fn check_initial_range(
+    name: &str,
+    range: &InitialRange,
+    plan: &CompiledPlan,
+    path: &str,
+    diagnostics: &mut Diagnostics,
+) {
+    let Some(stock) = plan.stocks.iter().find(|stock| stock.name == name) else {
+        return;
+    };
+    let Some(slot) = plan.layout.slots.get(stock.slot) else {
+        return;
+    };
+    for (index, bound) in range.range.iter().enumerate() {
+        let bound_path = format!("{path}.range[{index}]");
+        match parse_in_plan(bound, plan) {
+            Ok(typed) => {
+                let dim = typed.ty.dim();
+                let matches =
+                    dim == Some(slot.unit.dim()) || dim.is_some_and(Dim::is_dimensionless);
+                if !matches {
+                    let found = dim.map_or_else(|| "non-numeric".to_owned(), ToString::to_string);
+                    diagnostics.push(Diagnostic::error(
+                        "E1201",
+                        format!(
+                            "initial bound `{bound}` has dimension {found}, stock `{name}` has {}",
+                            slot.unit.dim()
+                        ),
+                        Some(&bound_path),
+                    ));
+                }
+            }
+            Err(error) => {
+                let span = error.span();
+                diagnostics.push(
+                    Diagnostic::error(error.code(), error.message(), Some(&bound_path))
+                        .with_span((span.start, span.end)),
+                );
+            }
+        }
     }
 }
 

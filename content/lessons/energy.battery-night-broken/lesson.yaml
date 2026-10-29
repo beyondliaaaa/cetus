@@ -94,7 +94,7 @@ teaching:
         load:     { range: ["0[W]", "2000[W]"] }
         capacity: { range: ["5[kW*h]", "40[kW*h]"] }
       initial:
-        charge_pct: { range: [0.2, 1.0] }
+        charge: { range: ["0.2 * capacity", "capacity"] }
       instruments: [battery_gauge, lux_meter, power_meter]
       duration: { max: "52[h]" }
     check:
@@ -132,7 +132,7 @@ teaching:
         load:     { range: ["0[W]", "2000[W]"] }
         capacity: { range: ["5[kW*h]", "40[kW*h]"] }
       initial:
-        charge_pct: { range: [0.2, 1.0] }
+        charge: { range: ["0.2 * capacity", "capacity"] }
       instruments: [battery_gauge, lux_meter, power_meter, unknown_meter]
       duration: { max: "52[h]" }
     check:

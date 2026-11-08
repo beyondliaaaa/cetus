@@ -225,6 +225,17 @@ pub struct CompiledBound {
     pub scale: f64,
 }
 
+/// A stock initial value evaluated from the selected parameters at runtime.
+#[derive(Debug, Clone)]
+pub struct CompiledInitial {
+    /// Initial-value expression.
+    pub expr: CompiledExpr,
+    /// Multiplier for a dimensionless expression interpreted in the stock's unit.
+    pub factor: f64,
+    /// Offset for a dimensionless expression interpreted in an affine stock unit.
+    pub offset: f64,
+}
+
 /// A compiled stock.
 #[derive(Debug, Clone)]
 pub struct CompiledStock {
@@ -236,6 +247,8 @@ pub struct CompiledStock {
     pub initial: f64,
     /// Bounds in SI units at the parameter defaults, for metadata and fallback.
     pub bounds: Option<(Option<f64>, Option<f64>)>,
+    /// Initial-value expression, for recomputation under overridden parameters.
+    pub initial_expr: Option<CompiledInitial>,
     /// Upper bound evaluated against the current state at each step.
     pub dynamic_max: Option<CompiledBound>,
     /// Flows that fill this stock.
@@ -567,6 +580,8 @@ fn compile_model_inner(model: &Model) -> (Option<CompiledPlan>, Diagnostics) {
             continue;
         };
         let path = format!("stocks.{name}.initial");
+        let declared = registry.parse(&spec.unit).expect("checked above");
+        let mut initial_expr = None;
         let initial =
             match parse_checked(&spec.initial, &resolver, &registry, &path, &mut diagnostics) {
                 Some(typed) => {
@@ -579,31 +594,36 @@ fn compile_model_inner(model: &Model) -> (Option<CompiledPlan>, Diagnostics) {
                         0.0
                     } else {
                         let compiled = compile(&typed);
+                        let (factor, offset) =
+                            if compiled.ty().dim().is_some_and(Dim::is_dimensionless)
+                                && !declared.dim().is_dimensionless()
+                            {
+                                (declared.factor(), declared.offset())
+                            } else {
+                                if compiled.ty().dim() != ty.dim() {
+                                    diagnostics.push(Diagnostic::error(
+                                        "E1201",
+                                        format!(
+                                            "initial value has dimension {}, stock declares {}",
+                                            describe_dim(compiled.ty().dim()),
+                                            describe_dim(ty.dim())
+                                        ),
+                                        Some(&path),
+                                    ));
+                                }
+                                (1.0, 0.0)
+                            };
                         let raw = evaluate_with_parameters(&compiled, &parameters, slots.len());
-                        let declared = registry.parse(&spec.unit).expect("checked above");
-                        if compiled.ty().dim().is_some_and(Dim::is_dimensionless)
-                            && !declared.dim().is_dimensionless()
-                        {
-                            declared.to_si(raw)
-                        } else {
-                            if compiled.ty().dim() != ty.dim() {
-                                diagnostics.push(Diagnostic::error(
-                                    "E1201",
-                                    format!(
-                                        "initial value has dimension {}, stock declares {}",
-                                        describe_dim(compiled.ty().dim()),
-                                        describe_dim(ty.dim())
-                                    ),
-                                    Some(&path),
-                                ));
-                            }
-                            raw
-                        }
+                        initial_expr = Some(CompiledInitial {
+                            expr: compiled,
+                            factor,
+                            offset,
+                        });
+                        raw * factor + offset
                     }
                 }
                 None => 0.0,
             };
-        let declared = registry.parse(&spec.unit).expect("checked above");
         let mut dynamic_max = None;
         let bounds = spec.bounds.as_ref().map(|bounds| {
             let min = bounds.min.map(|value| declared.to_si(value));
@@ -651,6 +671,7 @@ fn compile_model_inner(model: &Model) -> (Option<CompiledPlan>, Diagnostics) {
             slot: *slot,
             initial,
             bounds,
+            initial_expr,
             dynamic_max,
             inflows: Vec::new(),
             outflows: Vec::new(),

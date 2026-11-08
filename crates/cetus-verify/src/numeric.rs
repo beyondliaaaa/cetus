@@ -4,7 +4,7 @@ use std::collections::BTreeMap;
 use std::sync::Arc;
 
 use cetus_compile::{CompiledPlan, Diagnostic, compile_model};
-use cetus_kernel::{Sim, SimError};
+use cetus_kernel::{Sim, SimError, SimInit};
 use cetus_math::sqrt;
 use cetus_model::{Integrator, Model, ParadigmId, TimeKind};
 use cetus_sd::SdSubsystem;
@@ -176,11 +176,13 @@ fn run_one(
     sample: &[f64],
     seed: u64,
 ) -> Result<RunSummary, String> {
-    let mut sim = make_sim(plan, model.time.integrator, seed).map_err(|error| error.to_string())?;
+    let mut init = SimInit::new();
     for ((name, _, _), value) in ranged.iter().zip(sample) {
-        sim.set_param(name, *value)
+        init.set_parameter_si(plan, name, *value)
             .map_err(|error| error.to_string())?;
     }
+    let mut sim =
+        make_sim(plan, model.time.integrator, seed, &init).map_err(|error| error.to_string())?;
     let target = plan.time.tick_of(horizon);
     let steps = target.saturating_sub(plan.time.start_tick) as usize;
     let mut clamps: BTreeMap<String, usize> = BTreeMap::new();
@@ -201,9 +203,14 @@ fn run_one(
     Ok(RunSummary { clamps, steps })
 }
 
-fn make_sim(plan: &Arc<CompiledPlan>, integrator: Integrator, seed: u64) -> Result<Sim, SimError> {
+fn make_sim(
+    plan: &Arc<CompiledPlan>,
+    integrator: Integrator,
+    seed: u64,
+    init: &SimInit,
+) -> Result<Sim, SimError> {
     let subsystem = SdSubsystem::new(plan.clone()).with_integrator(integrator)?;
-    Sim::new(plan.clone(), seed, Box::new(subsystem))
+    Sim::new_with_init(plan.clone(), seed, Box::new(subsystem), init)
 }
 
 fn check_clamp_count(sweep: &SweepSummary, report: &mut Report) {
@@ -412,11 +419,13 @@ fn sample_trajectory(
     integrator: Integrator,
     params: &[(String, f64)],
 ) -> Result<BTreeMap<String, Vec<f64>>, String> {
-    let mut sim = make_sim(plan, integrator, SWEEP_SEEDS[0]).map_err(|error| error.to_string())?;
+    let mut init = SimInit::new();
     for (name, value) in params {
-        sim.set_param(name, *value)
+        init.set_parameter_si(plan, name, *value)
             .map_err(|error| error.to_string())?;
     }
+    let mut sim =
+        make_sim(plan, integrator, SWEEP_SEEDS[0], &init).map_err(|error| error.to_string())?;
     let target = plan.time.tick_of(horizon);
     let mut samples: BTreeMap<String, Vec<f64>> = BTreeMap::new();
     for stock in &plan.stocks {
@@ -537,7 +546,8 @@ fn run_hash(
     seed: u64,
     horizon: f64,
 ) -> Result<String, String> {
-    let mut sim = make_sim(plan, integrator, seed).map_err(|error| error.to_string())?;
+    let mut sim =
+        make_sim(plan, integrator, seed, &SimInit::default()).map_err(|error| error.to_string())?;
     sim.run_until(plan.time.tick_of(horizon))
         .map_err(|error| error.to_string())?;
     Ok(sim.state_hash_hex())

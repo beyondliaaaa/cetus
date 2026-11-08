@@ -11,7 +11,7 @@ use std::process::ExitCode;
 use std::sync::Arc;
 
 use cetus_compile::{CompiledPlan, Diagnostic, Severity, compile_model_with_warnings};
-use cetus_kernel::{Column, Dataset, DimAxis, Sim};
+use cetus_kernel::{Column, Dataset, DimAxis, Sim, SimInit};
 use cetus_model::Model;
 use cetus_sd::SdSubsystem;
 use cetus_units::{Dim, Unit, UnitRegistry};
@@ -259,7 +259,7 @@ fn parse_duration(text: &str, registry: &UnitRegistry) -> Result<f64, String> {
     Ok(value * unit.factor())
 }
 
-fn make_sim(model: &Model, plan: &CompiledPlan, seed: u64) -> Result<Sim, u8> {
+fn make_sim(model: &Model, plan: &CompiledPlan, seed: u64, init: &SimInit) -> Result<Sim, u8> {
     let plan = Arc::new(plan.clone());
     let subsystem = SdSubsystem::new(plan.clone())
         .with_integrator(model.time.integrator)
@@ -267,7 +267,7 @@ fn make_sim(model: &Model, plan: &CompiledPlan, seed: u64) -> Result<Sim, u8> {
             eprintln!("error: {error}");
             1
         })?;
-    Sim::new(plan, seed, Box::new(subsystem)).map_err(|error| {
+    Sim::new_with_init(plan, seed, Box::new(subsystem), init).map_err(|error| {
         eprintln!("error: {error}");
         1
     })
@@ -300,7 +300,7 @@ fn run(
         return Err(1);
     }
 
-    let mut sim = make_sim(&model, &plan, seed)?;
+    let mut sim = make_sim(&model, &plan, seed, &SimInit::default())?;
 
     let selected: Vec<String> = if probes.is_empty() {
         plan.observables
@@ -461,13 +461,15 @@ fn sweep(
 
     let mut results = Vec::with_capacity(points.len());
     for point in &points {
-        let mut sim = make_sim(&model, &plan, seed)?;
+        let mut init = SimInit::new();
         for (axis, value) in axes.iter().zip(point.iter()) {
-            sim.set_param(&axis.name, *value).map_err(|error| {
-                eprintln!("error: {error}");
-                1
-            })?;
+            init.set_parameter_si(&plan, &axis.name, *value)
+                .map_err(|error| {
+                    eprintln!("error: {error}");
+                    1
+                })?;
         }
+        let mut sim = make_sim(&model, &plan, seed, &init)?;
         sim.add_probe(probe).map_err(|error| {
             eprintln!("error: {error}");
             1

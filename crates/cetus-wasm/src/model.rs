@@ -1,9 +1,10 @@
 //! Compilation and simulation lifecycle behind [`crate::CompiledModel`].
 
+use std::collections::BTreeMap;
 use std::sync::Arc;
 
 use cetus_compile::{CompiledPlan, Diagnostic, compile_model};
-use cetus_kernel::Sim;
+use cetus_kernel::{Sim, SimInit};
 use cetus_model::{Model, ViewKind};
 use cetus_sd::SdSubsystem;
 
@@ -22,10 +23,25 @@ pub(crate) fn compile(yaml: &str) -> Result<CompiledModel, String> {
 }
 
 pub(crate) fn start(compiled: &CompiledModel, seed: u32) -> Result<SimHandle, String> {
+    start_with_params(compiled, seed, "{}")
+}
+
+pub(crate) fn start_with_params(
+    compiled: &CompiledModel,
+    seed: u32,
+    params_json: &str,
+) -> Result<SimHandle, String> {
+    let params: BTreeMap<String, f64> =
+        serde_json::from_str(params_json).map_err(|error| format!("bad params JSON: {error}"))?;
     let plan = compiled.plan.clone();
     let subsystem = SdSubsystem::new(plan.clone()).with_integrator(compiled.model.time.integrator);
     let subsystem = subsystem.map_err(|error| error.to_string())?;
-    let sim = Sim::new(plan.clone(), u64::from(seed), Box::new(subsystem))
+    let mut init = SimInit::new();
+    for (name, si_value) in params {
+        init.set_parameter_si(&plan, &name, si_value)
+            .map_err(|error| error.to_string())?;
+    }
+    let sim = Sim::new_with_init(plan.clone(), u64::from(seed), Box::new(subsystem), &init)
         .map_err(|error| error.to_string())?;
     Ok(SimHandle {
         sim,

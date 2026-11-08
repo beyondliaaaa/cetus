@@ -123,6 +123,17 @@ impl CompiledModel {
         model::start(self, seed).map_err(|message| JsValue::from_str(&message))
     }
 
+    /// Starts a fresh simulation with parameter overrides (JSON map, SI units).
+    ///
+    /// # Errors
+    /// Returns a readable message for invalid JSON, unknown parameters, or
+    /// out-of-range parameter/initial values.
+    #[wasm_bindgen(js_name = startWithParams)]
+    pub fn start_with_params(&self, seed: u32, params_json: &str) -> Result<SimHandle, JsValue> {
+        model::start_with_params(self, seed, params_json)
+            .map_err(|message| JsValue::from_str(&message))
+    }
+
     /// Restores a simulation from a snapshot.
     ///
     /// # Errors

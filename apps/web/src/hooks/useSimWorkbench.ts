@@ -558,7 +558,10 @@ export function useSimWorkbench() {
         paramValuesRef.current = optimistic;
         setParamValues(optimistic);
         try {
-          const next = await client.api.setParam(name, value, unit);
+          const restart = latestFrameRef.current?.tick === 0;
+          const next = restart
+            ? await client.api.startWithParams(optimistic, 1)
+            : await client.api.setParam(name, value, unit);
           if (activeRef.current !== current) {
             return;
           }

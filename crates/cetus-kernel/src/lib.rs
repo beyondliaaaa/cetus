@@ -285,10 +285,16 @@ impl Sim {
                         SimError::Subsystem(format!("initial `{name}`: {}", error.message()))
                     })?;
                     let compiled = compile_expression(&typed);
-                    if compiled.code().iter().any(|instruction| {
-                        matches!(instruction, Instr::Load(slot)
-                            if plan.layout.slots.get(*slot as usize).is_none_or(|slot| slot.kind != SlotKind::Parameter))
-                    }) {
+                    let invalid = compiled.code().iter().any(|instruction| match instruction {
+                        Instr::Time | Instr::Dt => true,
+                        Instr::Load(slot) => plan
+                            .layout
+                            .slots
+                            .get(*slot as usize)
+                            .is_none_or(|slot| slot.kind != SlotKind::Parameter),
+                        _ => false,
+                    });
+                    if invalid {
                         return Err(SimError::Subsystem(format!(
                             "initial `{name}` may only reference parameters"
                         )));

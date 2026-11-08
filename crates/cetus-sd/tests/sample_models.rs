@@ -247,6 +247,22 @@ fn sim_init_rejects_stock_reference_in_initial_expression() {
 }
 
 #[test]
+fn sim_init_rejects_time_reference_in_initial_expression() {
+    let (model, plan) = load("energy/solar-battery/module.yaml");
+    let mut init = SimInit::new();
+    init.set_stock_initial("charge", InitialValue::Expression("time".to_owned()));
+    let subsystem = SdSubsystem::new(plan.clone())
+        .with_integrator(model.time.integrator)
+        .expect("integrator");
+    let error = Sim::new_with_init(plan, 1, Box::new(subsystem), &init)
+        .expect_err("time references must be rejected");
+    assert!(
+        matches!(error, SimError::Subsystem(ref message) if message.contains("only reference parameters")),
+        "{error:?}"
+    );
+}
+
+#[test]
 fn sim_init_rejects_out_of_bounds_initial() {
     let (model, plan) = load("energy/solar-battery/module.yaml");
     let capacity_unit = plan.layout.slots[plan.stocks[0].slot].unit.clone();

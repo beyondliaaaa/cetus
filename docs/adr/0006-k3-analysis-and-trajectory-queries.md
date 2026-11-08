@@ -1,12 +1,12 @@
 # ADR-0006：K3 分析层与轨迹查询接口
 
-- 状态：草案（2026-10-26 修订；7 项评审结论已确认，剩余接口问题待评审；未合并）
+- 状态：已接受（2026-10-26，人工评审通过；PR #11 合并）
 - 相关：ADR-0004（K3/K4）、§5.2、§5.5、§5.13、§6.2、§6.3、§8.4、§12 M3
 - 取代：无（本 ADR 定稿 ADR-0004 中推迟到 M3 的 K3；批准后同步更新 ADR-0004）
 
 ## 本次修订摘要
 
-相对上一版草案，本版按评审意见确定了 7 件事：
+相对上一版草案，本版按两轮评审意见确定了以下事项：
 
 1. `Transient` 和 `Sweep` 接受**带时间戳的操作列表**（第一版只支持参数变更），在宏步边界生效。
 2. `SimFactory::make(plan, seed, &SimInit)`；`SimInit` 带存量初值覆盖（值或表达式），
@@ -20,6 +20,11 @@
 6. `AnalysisIo`、`AnalysisValue`、`QueryError` 加 `#[non_exhaustive]`。
 7. 其余沿用上一版：`&Arc<CompiledPlan>`（在 ADR-0004 中记录）、`Sweep` 只输出最终值和
    `reduce` 结果、查询返回 SI 值、`AnalysisEvents` 只有进度。
+8. `SimInit` 增加**参数覆盖**：先套用参数，再重算全部存量初值（模型自身的 initial
+   表达式 + 课程覆盖）。这修复 `Sim::set_param` 不重算存量初值的问题；V2 扫描与
+   实验台“开始运行前调参”都走这条路径。
+9. `CompiledQuery` 支持**时间窗口**（`eval_in(dataset, window)`），供 `world_state`、
+   `trajectory_fit` 的 `window` 使用。
 
 ## 背景
 
@@ -40,6 +45,11 @@ M3 的下一段关键路径是轨迹查询层与 K3。两件事互相依赖：
   表达“在 t 时刻把 load 改成 1200 W”，并且和内核一样在宏步边界生效（§5.5）。
 - **初值覆盖不重编译**：V4 的判别实验要在 `setup_space` 内搜 256 组设置；如果每组都
   重新编译 `plan`，浏览器 200 ms 的预算不够。初值覆盖必须作用在已有 `plan` 和 `Sim` 上。
+- **参数覆盖与初值（现有 bug）**：`Sim::set_param` 只重算辅助量，不重算存量初值。
+  solar-battery 的 `initial: "0.5 * capacity"` 在创建 Sim 时按默认容量算成 10 kWh；
+  V2 扫描到 `capacity = 1 kWh` 时仍从 10 kWh 起步，第一步被钳制回上限。结果是扫描
+  测的场景与模型声明不一致，V2 却照样报 PASS。`SimInit` 必须先套用参数、再计算
+  全部存量初值（模型 initial 表达式 + 课程覆盖）；V2 扫描和实验台开始前调参都走它。
 
 ## 选项
 
@@ -88,14 +98,16 @@ pub trait Analysis {
 #[non_exhaustive]
 pub enum AnalysisError {
     Config(CfgError),
+    Query(QueryError),
     Sim(SimError),
 }
 ```
 
 - `AnalysisId` 用 `&'static str` 而不是枚举，是为了让未来的分析可以来自新的 crate，
   不需要修改核心抽象（P13）。内置分析目前是 `transient`、`sweep`。
-- `AnalysisError` 让“配置写错”和“仿真失败”分开；`Analysis::run` 接收的是原始
-  `AnalysisCfg`，内部调用该分析的强类型解析函数（见 §4）。
+- `AnalysisError` 让“配置写错”“查询失败”和“仿真失败”分开；`Analysis::run` 接收的是
+  原始 `AnalysisCfg`，内部调用该分析的强类型解析函数（见 §4）；`Sweep` 的 `reduce`
+  查询失败走 `AnalysisError::Query`。
 
 ### 3. `SimInit` 与 `SimFactory`
 
@@ -103,6 +115,7 @@ pub enum AnalysisError {
 #[derive(Debug, Clone, Default)]
 #[non_exhaustive]
 pub struct SimInit {
+    pub parameters: IndexMap<String, Quantity>,
     pub stock_initial: IndexMap<String, InitialValue>,
 }
 
@@ -146,12 +159,22 @@ impl<'a> AnalysisIo<'a> {
   `cetus-sd`）。同一个 `plan`、`seed` 与 `SimInit` 必须得到同一个初始 `Sim`。
 - `AnalysisIo` 是 `#[non_exhaustive]`：字段只能通过 `new` / `with_observations`
   设置，后续增加字段不破坏调用方。
-- `SimInit` 只覆盖**存量初值**，不重新编译 `plan`：工厂在已有的
-  `plan` 上创建 `Sim`，把覆盖写入对应存量槽并重新初始化辅助量；`Expression` 用
-  `parse_in_plan` 针对同一个 `plan` 解析，按所选参数求值。这样 V4 搜索 256 组设置时
+- `SimInit` 同时覆盖**参数**与**存量初值**；应用顺序固定为：
+  1. 套用 `parameters`（按声明单位转 SI，校验存在与范围）；
+  2. 用所选参数重新计算**模型自身的全部** `stocks[].initial` 表达式；
+  3. 套用 `stock_initial` 覆盖（值或表达式）；
+  4. 调用子系统的 `init`。
+  这修复了 `Sim::set_param` 只重算辅助量、不重算存量初值的问题。编译器需要保留
+  存量 initial 的 `CompiledExpr`（`CompiledStock.initial` 仍是默认值，供 metadata），
+  才能在参数变化后重算。
+- 全过程不重新编译 `plan`：工厂在已有的 `plan` 上创建 `Sim`。V4 搜索 256 组设置时
   只重复创建 `Sim`，不重复编译计划，落在浏览器 200 ms 预算内。
-- 初始值表达式的作用域是模型参数（和存量自身/其他存量由实现定义）；第一版建议
-  只允许参数引用，避免初值之间的顺序依赖。这个限制写进 `SimInit` 的文档。
+- `InitialValue::Expression` 只允许引用**模型参数**；引用存量/辅助变量是
+  `CfgError::InvalidValue`，解析后的初值超出存量 `bounds` 是
+  `SimError::InvalidInitial { stock, value }`（为此 `SimError` 增加
+  `InvalidInitial` 变体，并加 `#[non_exhaustive]`）。不接受“由实现定义”的作用域。
+- V2 扫描和实验台的“开始运行前调参”都走 `SimInit`；V2 的 `run_one` 不再先建 `Sim`
+  再 `set_param`。
 - `SimInit` 的键必须是存量；不是存量时返回配置/运行错误，而不是静默忽略。
 
 ### 4. `AnalysisCfg` 与强类型解析
@@ -220,32 +243,31 @@ pub enum CfgError {
 pub struct TransientCfg {
     pub until: Quantity,
     pub probes: Vec<String>,
-    pub parameters: IndexMap<String, Quantity>,
-    pub initial: SimInit,
+    pub init: SimInit,
     pub operations: Vec<Operation>,
 }
 
 impl TransientCfg {
-    pub fn parse(cfg: &AnalysisCfg) -> Result<Self, CfgError>;
+    pub fn parse(plan: &CompiledPlan, cfg: &AnalysisCfg) -> Result<Self, CfgError>;
 }
 
 pub struct SweepCfg {
     pub axes: Vec<SweepAxis>,
     pub until: Quantity,
     pub probes: Vec<String>,
-    pub parameters: IndexMap<String, Quantity>,
-    pub initial: SimInit,
+    pub init: SimInit,
     pub operations: Vec<Operation>,
     pub reduce: Vec<String>,
 }
 
 impl SweepCfg {
-    pub fn parse(cfg: &AnalysisCfg) -> Result<Self, CfgError>;
+    pub fn parse(plan: &CompiledPlan, cfg: &AnalysisCfg) -> Result<Self, CfgError>;
 }
 ```
 
 `Transient` 和 `Sweep` 的 `run` 内部先调用对应的 `parse`，把 `CfgError` 映射为
-`AnalysisError::Config`。
+`AnalysisError::Config`。`AnalysisCfg` 的 `parameters` 与 `initial` 键都解析进同一个
+`SimInit`（`TransientCfg.init` / `SweepCfg.init`）。
 
 ### 5. 操作序列
 
@@ -292,7 +314,8 @@ value_at(Series<T>, Time) -> T
 ```
 
 - `min` / `max` 保留现有的标量二元重载；查询编译器按参数类型/元数选择聚合版本。
-- `Type::Series(Box<Type>)` 只对查询编译有效；模型方程里出现 `Series` 仍然报类型错误。
+- `Type::Series(Box<Type>)` 只对查询编译有效；模型方程里出现 `Series` 时报专门的
+  **E1902**（新增诊断页），而不是笼统的类型错误。
 
 查询先整体类型检查，再编译：
 
@@ -300,11 +323,20 @@ value_at(Series<T>, Time) -> T
 #[derive(Debug, Clone, Default)]
 pub struct ParameterValues {
     values: IndexMap<String, f64>, // SI
+    changed_by_operation: BTreeSet<String>,
 }
 
 impl ParameterValues {
     pub fn from_plan(plan: &CompiledPlan) -> Self;
     pub fn set(&mut self, name: &str, si_value: f64);
+    pub fn mark_changed_by_operation(&mut self, name: &str);
+}
+
+pub struct TimeWindow {
+    /// Inclusive start, in the dataset's display time unit.
+    pub start: Quantity,
+    /// Inclusive end, in the dataset's display time unit.
+    pub end: Quantity,
 }
 
 pub struct CompiledQuery { /* compiled expression + bound columns/parameters */ }
@@ -318,6 +350,13 @@ impl CompiledQuery {
     ) -> Result<Self, QueryError>;
 
     pub fn eval(&self, dataset: &Dataset) -> Result<QueryResult, QueryError>;
+
+    /// Restricts the dataset to `[start, end]` before evaluating the query.
+    pub fn eval_in(
+        &self,
+        dataset: &Dataset,
+        window: TimeWindow,
+    ) -> Result<QueryResult, QueryError>;
 }
 
 #[non_exhaustive]
@@ -346,6 +385,7 @@ pub enum QueryError {
     UnknownVariable(String),
     InvalidExpression(String),
     TypeMismatch(String),
+    ParameterChangedByOperation(String),
     Empty,
 }
 ```
@@ -357,8 +397,16 @@ pub enum QueryError {
   `QueryResult::Optional(Option<QueryValue>)`；`first_time` 不命中时是 `None`。
 - `first_time` 返回 `Option<QueryValue>`（SI 值 + 时间单位），不是裸 `f64`；调用方
   用 `display_value()` 显示为小时等。
-- `min` / `mean` / `value_at` 返回 `QueryValue`；`max_where` 在 API 层返回
-  `Option<QueryValue>`（无匹配行时 `None`）。
+- `min` / `mean` / `value_at` 返回 `QueryValue`；`min` / `mean` 在空窗口（或空
+  `Dataset`）时报 `QueryError::Empty`。
+- `max_where` 在 API 层返回 `Option<QueryValue>`（无匹配行时 `None`）；在标量表达式
+  里使用时，空集报 `QueryError::Empty`。
+- `first_time` 在无匹配行时返回 `None`，不是 `Empty`。
+- 被操作序列改过的参数在查询中引用时，报 `QueryError::ParameterChangedByOperation`
+  （第一版；避免“查询用的是哪个时刻的参数”歧义）。
+- `eval_in(dataset, window)` 先把 `Dataset` 截取到 `[start, end]`（含端点），再求值；
+  `world_state` 与 `trajectory_fit` 的 `window` 直接映射到它。窗口为空时按上面的空集
+  规则处理。
 - 查询只支持**单 `Time` 轴**的 `Dataset`；多维 `Sweep` 输出不做切片查询，V3 的弹性/
   单调性用 `Sweep` 的 `reduce` 表达。多维切片留给后续 ADR。
 - `CompiledQuery` 绑定 `Dataset` 的列顺序和 `ParameterValues`；数据集 schema 变化后
@@ -431,20 +479,19 @@ pub trait AnalysisEvents {
 | 6 | 采用 `CompiledQuery`：查询表达式先编译、再求值；判别实验要值 256 次，必须有这个能力。 |
 | 7 | `AnalysisEvents` 第一版只有进度；未来加一个带默认实现的取消方法不算破坏性修改，现在不用加。 |
 
-## 剩余待评审问题
+## 第二轮评审结论（2026-10-26）
 
-1. **`AnalysisError`**：为了让强类型解析的 `CfgError` 有地方落，`Analysis::run` 的返回
-   从 `Result<Dataset, SimError>` 改成 `Result<Dataset, AnalysisError>`。是否接受？
-   （备选：把配置错误折成 `SimError::Subsystem`，但不推荐。）
-2. **`Type::Series`**：`cetus-expr` 增加 `Series` 只用于查询编译；模型方程仍拒绝。
-   是否接受这个 K1 扩展？
-3. **查询参数来源**：`CompiledQuery::compile` 显式接收 `ParameterValues`（SI），而不是
-   从 `Dataset` 元数据推断。lesson-runtime 需要把所选参数传给查询层；是否接受？
-4. **`max_where` 的空集**：API 返回 `Option<QueryValue>`；在更大的标量表达式里使用时，
-   空集如何处理（报 `QueryError::Empty` 还是返回 NaN）？本版建议报 `Empty`。
-5. **`SimInit::Expression` 的作用域**：第一版只允许参数引用；是否需要允许其他存量？
-   本版建议只允许参数，避免初值之间的顺序依赖。
-6. **`Sweep` 的操作序列**：每个参数点复用同一组操作（时间相对零点），是否足够？
+| # | 结论 |
+|---|---|
+| 1 | 接受 `AnalysisError`，并新增 `Query(QueryError)` 变体。 |
+| 2 | 接受 `Type::Series`；同步 §5.2 与 ADR-0004（注明只用于查询）；模型方程出现 `Series` 时报专门的 **E1902**，并补诊断页。 |
+| 3 | 接受显式 `ParameterValues`；被操作序列改过的参数在查询中引用时，报 `QueryError`（第一版）。 |
+| 4 | 接受：`max_where` 在 API 层返回 `None`，标量上下文报 `Empty`；`min`/`mean` 遇到空窗口也报 `Empty`。 |
+| 5 | 初值表达式只允许引用参数；引用存量或初值超出 `bounds` 时报错。`SimInit` 增加参数覆盖，先套参数、再算全部存量初值；V2 扫描与实验台开始前调参走同一条路径，并补回归测试。 |
+| 6 | 接受 `Sweep` 只输出最终值和 `reduce` 结果。 |
+| + | `CompiledQuery` 支持时间窗口（`eval_in`），供 `world_state`、`trajectory_fit` 使用。 |
+
+以上确认后无剩余接口问题；ADR 已接受。
 
 ## 后果
 
@@ -460,9 +507,12 @@ pub trait AnalysisEvents {
 
 ## 实施顺序（批准后）
 
-1. `cetus-kernel::query` + `cetus-expr` 的 `Series`/聚合函数 + 单元测试
-   （`first_time`/`min`/`mean`/`max_where`/`value_at`）。
-2. `cetus-kernel::analysis` + `Transient` + `SimInit` + 测试；CLI 的 `run` 改用它
+1. **先修 `SimInit` 与初值 bug**：`SimInit` 增加参数覆盖；编译器保留存量 initial 的
+   `CompiledExpr`；`SimFactory`/`Sim` 先套参数、再算全部存量初值；V2 扫描和实验台
+   开始前调参改走 `SimInit`；补 `set_param` 不重算初值的回归测试。
+2. `cetus-kernel::query` + `cetus-expr` 的 `Series`/聚合函数 + 单元测试
+   （`first_time`/`min`/`mean`/`max_where`/`value_at`，含 `eval_in`）。
+3. `cetus-kernel::analysis` + `Transient` + 操作序列 + 测试；CLI 的 `run` 改用它
    （或先并存）。
-3. `Sweep` + 操作序列 + 测试；`cetus-verify` V3 行为测试使用 `CompiledQuery`。
-4. 更新 ADR-0004 的 K3 行与 STATUS。
+4. `Sweep` + `reduce` + 测试；`cetus-verify` V3 行为测试使用 `CompiledQuery`。
+5. 更新 ADR-0004 的 K3 行与 STATUS。

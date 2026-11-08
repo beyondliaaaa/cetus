@@ -25,6 +25,7 @@ pub enum Type {
     Vector(Box<Type>, usize),
     Matrix(Box<Type>, usize, usize),
     Array(Box<Type>),
+    Series(Box<Type>),
     Field(Box<Type>, GridId),
     Table(AgentTypeId),
     Graph(GraphId),
@@ -34,6 +35,8 @@ pub enum Type {
 ```
 
 - `Type` 定义在 `cetus-expr`，`Dim` 来自 `cetus-units`。
+- `Series(Box<Type>)` 只用于轨迹查询编译（ADR-0006）；模型方程中出现 `Series`
+  报专门的 E1902。
 - M1 实现 `Scalar`、`Int`、`Bool`、`Enum` 的解析、名称解析与类型推导；
   其余分支在求值阶段报 E1901「类型尚未支持」。
 - 关键要求（M1 的退出标准之一）：一个带 `Complex` 变量的模型必须能通过解析、
@@ -77,9 +80,9 @@ pub trait Analysis {
 - 模型描述「系统是什么」，分析描述「要算什么」。
 - M1 实现 `transient` 与 `sweep`；`ensemble`、`fit` 在 M3。
 - `AnalysisCfg` 是带单位的值映射，不解析 YAML。
-- **M3 修订（ADR-0006，2026-10-26）**：`plan` 参数定为 `&Arc<CompiledPlan>`，
+- **M3 修订（ADR-0006，2026-10-26 已接受）**：`plan` 参数定为 `&Arc<CompiledPlan>`，
   以便 sweep/判别实验复用同一份计划；ADR-0006 同时定义 `AnalysisId`、`AnalysisCfg`、
-  `AnalysisIo`、`SimInit`、`CompiledQuery`，其余接口仍在评审。
+  `AnalysisIo`、`SimInit`、`CompiledQuery`，接口已定稿，实现待 M3。
 
 ### K4 数据集
 
@@ -219,7 +222,7 @@ M1 的**退出标准**（§12）聚焦于量纲、表达式、SD、跨目标确�
 |---|---|---|
 | K1 | ✅ 标量类完整；`Complex` 等分支可解析、可类型推导、求值报 E1901 | — |
 | K2 | ✅ `continuous` + `discrete`；整数刻度 | 多速率结构体：M6 |
-| K3 | ⏳ 接口由 ADR-0006 定稿中：`&Arc<CompiledPlan>`、`SimInit`、`CompiledQuery` 已确认；实现待 M3 | — |
+| K3 | ⏳ 接口由 ADR-0006 定稿（`&Arc<CompiledPlan>`、`SimInit`、`CompiledQuery`）；实现待 M3 | — |
 | K4 | ✅ `Dataset`（Time / Parameter / Ensemble 轴）+ CSV | — |
 | K5 | ⏳ `cetus-solve` 是占位 crate，trait 与 `SolveProblem` 未定义 | M6 |
 | K6 | ⏳ 连接器 schema 与 `FieldKind` 未定义 | M4（`signal` + `resource`） |
@@ -242,5 +245,5 @@ M1 的**退出标准**（§12）聚焦于量纲、表达式、SD、跨目标确�
   验证 K1 的接口通用性。
 - 上表的推迟项是 M1 的范围修正，不是设计变更。K12 已在 M2 定稿
   （`ViewKind` + `ParadigmId::views()`，前端 `views/registry.ts` 随 M2 落地）；
-  K3 的 `&Arc<CompiledPlan>` 已由 ADR-0006 确认（其余接口仍在评审）；K9（`Decision`）
-  仍待 M3，依此类推，定稿时更新本 ADR。
+  K3 接口已由 ADR-0006 定稿（2026-10-26）；K9（`Decision`）仍待 M3，依此类推，
+  定稿时更新本 ADR。

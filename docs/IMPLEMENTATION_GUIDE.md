@@ -418,12 +418,13 @@ pub enum Type {
     Vector(Box<Type>, usize),             // 定长向量，元素同量纲
     Matrix(Box<Type>, usize, usize),      // 定长矩阵
     Array(Box<Type>),                     // 变长数组（agent 属性列等）
+    Series(Box<Type>),                    // 轨迹查询；模型方程中出现报 E1902
     Field(Box<Type>, GridId),             // 网格场
     Table(AgentTypeId), Graph(GraphId), Geometry(GeomKind), Dataset(DatasetSchemaId),
 }
 ```
 
-  M1 只实现 `Scalar`、`Int`、`Bool`、`Enum`；其余分支在编译期报 E1901“类型尚未支持”，但**解析器、名称解析和类型推导的接口必须对它们是通用的**，后续范式加入时只补求值实现。
+  M1 只实现 `Scalar`、`Int`、`Bool`、`Enum`；其余分支在编译期报 E1901“类型尚未支持”，但**解析器、名称解析和类型推导的接口必须对它们是通用的**，后续范式加入时只补求值实现。`Series` 是例外：它只用于 ADR-0006 的查询编译，模型方程中出现时直接报 E1902。
 - 解析器：手写 Pratt 解析器，错误恢复好、位置信息准。产出 AST 后经过名称解析和量纲推导，再降级成**紧凑的字节码或闭包树**用于求值。
 
 **表达式等价判定**（教学层和验收共用，放在本 crate 中）

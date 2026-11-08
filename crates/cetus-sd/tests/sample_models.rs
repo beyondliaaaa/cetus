@@ -10,7 +10,7 @@ use std::path::PathBuf;
 use std::sync::Arc;
 
 use cetus_compile::{CompiledPlan, compile_model};
-use cetus_kernel::Sim;
+use cetus_kernel::{InitialValue, Quantity, Sim, SimError, SimInit};
 use cetus_model::Model;
 use cetus_sd::SdSubsystem;
 
@@ -179,6 +179,93 @@ fn solar_battery_upper_bound_follows_capacity() {
     assert!(
         max <= 1.0 + 1e-9,
         "charge_pct exceeded the dynamic capacity: {max}"
+    );
+}
+
+#[test]
+fn solar_battery_initial_follows_capacity_with_sim_init() {
+    let (model, plan) = load("energy/solar-battery/module.yaml");
+    let mut init = SimInit::new();
+    init.set_parameter_si(&plan, "capacity", 1.0 * 3.6e6)
+        .expect("capacity");
+    let subsystem = SdSubsystem::new(plan.clone())
+        .with_integrator(model.time.integrator)
+        .expect("integrator");
+    let sim = Sim::new_with_init(plan, 1, Box::new(subsystem), &init).expect("sim");
+    let charge = sim.stock("charge").expect("charge");
+    assert!(
+        (charge - 0.5 * 3.6e6).abs() < 1e-6,
+        "charge should follow the overridden capacity: {charge}"
+    );
+}
+
+#[test]
+fn sim_init_applies_stock_overrides_and_expressions() {
+    let (model, plan) = load("energy/solar-battery/module.yaml");
+    let capacity_unit = plan.layout.slots[plan.stocks[0].slot].unit.clone();
+
+    let mut init = SimInit::new();
+    init.set_stock_initial(
+        "charge",
+        InitialValue::Value(Quantity {
+            value: 1.0,
+            unit: capacity_unit,
+        }),
+    );
+    let subsystem = SdSubsystem::new(plan.clone())
+        .with_integrator(model.time.integrator)
+        .expect("integrator");
+    let sim = Sim::new_with_init(plan.clone(), 1, Box::new(subsystem), &init).expect("sim");
+    assert!((sim.stock("charge").expect("charge") - 3.6e6).abs() < 1e-6);
+
+    let mut init = SimInit::new();
+    init.set_stock_initial(
+        "charge",
+        InitialValue::Expression("0.25 * capacity".to_owned()),
+    );
+    let subsystem = SdSubsystem::new(plan.clone())
+        .with_integrator(model.time.integrator)
+        .expect("integrator");
+    let sim = Sim::new_with_init(plan, 1, Box::new(subsystem), &init).expect("sim");
+    assert!((sim.stock("charge").expect("charge") - 0.25 * 20.0 * 3.6e6).abs() < 1e-6);
+}
+
+#[test]
+fn sim_init_rejects_stock_reference_in_initial_expression() {
+    let (model, plan) = load("energy/solar-battery/module.yaml");
+    let mut init = SimInit::new();
+    init.set_stock_initial("charge", InitialValue::Expression("charge * 2".to_owned()));
+    let subsystem = SdSubsystem::new(plan.clone())
+        .with_integrator(model.time.integrator)
+        .expect("integrator");
+    let error = Sim::new_with_init(plan, 1, Box::new(subsystem), &init)
+        .expect_err("stock references must be rejected");
+    assert!(
+        matches!(error, SimError::Subsystem(ref message) if message.contains("only reference parameters")),
+        "{error:?}"
+    );
+}
+
+#[test]
+fn sim_init_rejects_out_of_bounds_initial() {
+    let (model, plan) = load("energy/solar-battery/module.yaml");
+    let capacity_unit = plan.layout.slots[plan.stocks[0].slot].unit.clone();
+    let mut init = SimInit::new();
+    init.set_stock_initial(
+        "charge",
+        InitialValue::Value(Quantity {
+            value: 100.0,
+            unit: capacity_unit,
+        }),
+    );
+    let subsystem = SdSubsystem::new(plan.clone())
+        .with_integrator(model.time.integrator)
+        .expect("integrator");
+    let error = Sim::new_with_init(plan, 1, Box::new(subsystem), &init)
+        .expect_err("out-of-bounds initials must be rejected");
+    assert!(
+        matches!(error, SimError::InvalidInitial { ref stock, .. } if stock == "charge"),
+        "{error:?}"
     );
 }
 

@@ -10,21 +10,25 @@
 #![forbid(unsafe_code)]
 
 pub mod dataset;
+pub mod init;
 pub mod rng;
 pub mod snapshot;
 
 use std::sync::Arc;
 
-use cetus_compile::{CompiledPlan, CompiledTable};
-use cetus_expr::{CompiledExpr, EvalContext};
+use cetus_compile::{CompiledPlan, CompiledTable, SlotKind, parse_in_plan};
+use cetus_expr::{CompiledExpr, EvalContext, Instr, compile as compile_expression};
 use cetus_math::canonical_bits;
+use cetus_units::Dim;
 
 pub use dataset::{Column, Dataset, DimAxis};
+pub use init::{InitialValue, Quantity, SimInit};
 pub use rng::{RngStreams, derive_seed};
 pub use snapshot::{Snapshot, SnapshotError};
 
 /// A floating-point assertion failure or other runtime simulation error.
 #[derive(Debug, Clone, PartialEq, Eq, thiserror::Error)]
+#[non_exhaustive]
 pub enum SimError {
     /// A state slot became NaN or infinite (E4001).
     #[error("non-finite value in slot {slot} ({name})")]
@@ -43,6 +47,14 @@ pub enum SimError {
     /// An observable or parameter name was not found.
     #[error("unknown name `{0}`")]
     UnknownName(String),
+    /// A stock initial value is non-finite or outside its bounds.
+    #[error("invalid initial value for `{stock}`: {message}")]
+    InvalidInitial {
+        /// Stock name.
+        stock: String,
+        /// Explanation, including the rejected value.
+        message: String,
+    },
     /// The subsystem reported an error.
     #[error("subsystem error: {0}")]
     Subsystem(String),
@@ -173,24 +185,161 @@ impl std::fmt::Debug for Sim {
 }
 
 impl Sim {
-    /// Creates a simulation at the plan's start tick.
+    /// Creates a simulation at the plan's start tick with default parameters.
     ///
     /// # Errors
     /// Returns [`SimError`] if initialisation produces a non-finite value.
     pub fn new(
         plan: Arc<CompiledPlan>,
         seed: u64,
+        subsystem: Box<dyn Subsystem>,
+    ) -> Result<Self, SimError> {
+        Self::new_with_init(plan, seed, subsystem, &SimInit::default())
+    }
+
+    /// Creates a simulation with parameter and stock-initial overrides.
+    ///
+    /// Parameters are applied first, then every stock initial expression is
+    /// recomputed under the selected parameters, then per-stock overrides are
+    /// applied. The compiled plan is never rebuilt.
+    ///
+    /// # Errors
+    /// Returns [`SimError`] for unknown names, out-of-range parameters,
+    /// non-finite or out-of-bounds initial values, or subsystem failures.
+    pub fn new_with_init(
+        plan: Arc<CompiledPlan>,
+        seed: u64,
         mut subsystem: Box<dyn Subsystem>,
+        init: &SimInit,
     ) -> Result<Self, SimError> {
         let mut state = vec![0.0; plan.layout.len()];
-        for stock in &plan.stocks {
-            state[stock.slot] = stock.initial;
-        }
         for parameter in &plan.parameters {
             state[parameter.slot] = parameter.value;
         }
+        for (name, quantity) in &init.parameters {
+            let Some(parameter) = plan
+                .parameters
+                .iter()
+                .find(|parameter| parameter.name == *name)
+            else {
+                return Err(SimError::UnknownName(name.clone()));
+            };
+            let Some(slot) = plan.layout.slots.get(parameter.slot) else {
+                return Err(SimError::UnknownName(name.clone()));
+            };
+            if quantity.unit.dim() != slot.unit.dim() {
+                return Err(SimError::Subsystem(format!(
+                    "parameter `{name}` unit {} does not match {}",
+                    quantity.unit.symbol(),
+                    slot.unit.symbol()
+                )));
+            }
+            let si = quantity.unit.to_si(quantity.value);
+            if let Some((min, max)) = parameter.range
+                && !(si >= min && si <= max)
+            {
+                return Err(SimError::Subsystem(format!(
+                    "parameter `{name}` = {si} is outside [{min}, {max}]"
+                )));
+            }
+            state[parameter.slot] = si;
+        }
         let tick = plan.time.start_tick;
         let t = plan.time.time_of(tick);
+        let use_static = init.parameters.is_empty() && init.stock_initial.is_empty();
+        for stock in &plan.stocks {
+            state[stock.slot] = if use_static {
+                stock.initial
+            } else if let Some(initial) = &stock.initial_expr {
+                let context = StateContext {
+                    state: &state,
+                    t,
+                    dt: plan.time.quantum,
+                    tables: &plan.tables,
+                };
+                initial.expr.eval(&context) * initial.factor + initial.offset
+            } else {
+                stock.initial
+            };
+        }
+        for (name, value) in &init.stock_initial {
+            let Some(stock) = plan.stocks.iter().find(|stock| stock.name == *name) else {
+                return Err(SimError::UnknownName(name.clone()));
+            };
+            let Some(slot) = plan.layout.slots.get(stock.slot) else {
+                return Err(SimError::UnknownName(name.clone()));
+            };
+            let si = match value {
+                InitialValue::Value(quantity) => {
+                    if quantity.unit.dim() != slot.unit.dim() {
+                        return Err(SimError::Subsystem(format!(
+                            "stock `{name}` unit {} does not match {}",
+                            quantity.unit.symbol(),
+                            slot.unit.symbol()
+                        )));
+                    }
+                    quantity.unit.to_si(quantity.value)
+                }
+                InitialValue::Expression(source) => {
+                    let typed = parse_in_plan(source, &plan).map_err(|error| {
+                        SimError::Subsystem(format!("initial `{name}`: {}", error.message()))
+                    })?;
+                    let compiled = compile_expression(&typed);
+                    if compiled.code().iter().any(|instruction| {
+                        matches!(instruction, Instr::Load(slot)
+                            if plan.layout.slots.get(*slot as usize).is_none_or(|slot| slot.kind != SlotKind::Parameter))
+                    }) {
+                        return Err(SimError::Subsystem(format!(
+                            "initial `{name}` may only reference parameters"
+                        )));
+                    }
+                    let (factor, offset) = if compiled.ty().dim().is_some_and(Dim::is_dimensionless)
+                        && !slot.unit.dim().is_dimensionless()
+                    {
+                        (slot.unit.factor(), slot.unit.offset())
+                    } else {
+                        (1.0, 0.0)
+                    };
+                    let context = StateContext {
+                        state: &state,
+                        t,
+                        dt: plan.time.quantum,
+                        tables: &plan.tables,
+                    };
+                    compiled.eval(&context) * factor + offset
+                }
+            };
+            state[stock.slot] = si;
+        }
+        for stock in &plan.stocks {
+            let value = state[stock.slot];
+            if !value.is_finite() {
+                return Err(SimError::InvalidInitial {
+                    stock: stock.name.clone(),
+                    message: format!("non-finite value {value}"),
+                });
+            }
+            let (min, static_max) = stock.bounds.unwrap_or((None, None));
+            let max = stock.dynamic_max.as_ref().map_or(static_max, |bound| {
+                let context = StateContext {
+                    state: &state,
+                    t,
+                    dt: plan.time.quantum,
+                    tables: &plan.tables,
+                };
+                Some(bound.expr.eval(&context) * bound.scale)
+            });
+            if min.is_some_and(|min| value < min) || max.is_some_and(|max| value > max) {
+                return Err(SimError::InvalidInitial {
+                    stock: stock.name.clone(),
+                    message: format!(
+                        "value {value} is outside [{}, {}]",
+                        min.map_or_else(|| "-inf".to_owned(), |min| min.to_string()),
+                        max.map_or_else(|| "inf".to_owned(), |max| max.to_string())
+                    ),
+                });
+            }
+        }
         subsystem.init(&mut state, t)?;
         let sim = Self {
             plan,

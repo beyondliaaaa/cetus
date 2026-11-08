@@ -244,6 +244,33 @@ const api: SimWorkerApi = {
     return frameOf(next);
   },
 
+  async startWithParams(
+    params: Record<string, number>,
+    seed = 1,
+  ): Promise<Frame> {
+    await ready;
+    const model = requireCompiled();
+    if (!meta) {
+      throw new Error("no model loaded");
+    }
+    const si: Record<string, number> = {};
+    for (const parameter of meta.parameters) {
+      const value = params[parameter.name] ?? parameter.value;
+      si[parameter.name] = value * parameter.unitFactor + parameter.offset;
+    }
+    let next: Sim | null = null;
+    try {
+      next = model.startWithParams(seed, JSON.stringify(si));
+      registerProbes(next, meta);
+    } catch (error) {
+      next?.free();
+      throw asError(error);
+    }
+    freeSim();
+    sim = next;
+    return frameOf(next);
+  },
+
   async frame(): Promise<Frame> {
     await ready;
     return frameOf(requireSim());

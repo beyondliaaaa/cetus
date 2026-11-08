@@ -130,10 +130,14 @@
 - **solar-battery 边界抖动修复（去 dt）**：充电改为
   `if charge < capacity then pv_power else min(pv_power, load)`，空电放电取
   `min(load, pv_power)`；上限允许一步钳制（O(dt) 误差），单次运行最大钳制步数占比
-  约 0.5%，worst-clamp 样本在 128 点收敛采样下通过。黄金哈希按 ADR-0001 更新
+  约 0.4%，worst-clamp 样本在 128 点收敛采样下通过。黄金哈希按 ADR-0001 更新
   （去掉 `dt` 依赖，仅 `solar-battery`）。
 - **W2001**：flows/auxiliaries/observables 的方程引用 `dt` 时给出警告；
   solar-battery 已按 SD 惯例去掉 `dt`，不再触发。
+- **`SimInit` 修复参数覆盖后的初值**：编译器保留存量 initial 的表达式；
+  `Sim::new_with_init` 先套用参数、再重算全部存量初值、最后套用课程覆盖，并检查
+  存量 bounds。V2 扫描、CLI `sweep` 与实验台“开始运行前调参”都走这条路径；
+  `cetus-sd` 新增 4 个回归测试（容量覆盖、覆盖值与表达式、拒绝存量引用、拒绝越界）。
 - **诊断**：新增 `E7201`、`E7202`、`E7203`、`W2001`、`W7201`、`W7202` 及对应页面。
 - **测试**：`cetus-verify` 新增 V2 正例、课程 V2、离散时间跳过收敛、发散模型反例。
 
@@ -151,9 +155,6 @@
    可能过时。
 6. **SD 模型的 4 个种子是重复运行**：SD 没有随机流；4 个种子目前不会改变结果，等 ABM
    引入后才有区分作用。
-7. **参数覆盖后存量初值不重算**：`Sim::set_param` 只重算辅助量；V2 扫描改变
-   `capacity` 时 `charge` 仍按默认容量起步，实验台开始前调参同理。ADR-0006 的
-   `SimInit` 会先套参数、再算全部存量初值；实现前该场景的 V2 结论要打折扣。
 
 ### M3 教学 schema 修订（进行中）
 
@@ -216,7 +217,7 @@ CI 检查 native、wasm 与该文件三者一致（ADR-0001「黄金哈希」）
 
 ### 规模
 
-- Rust 测试：**181** 个通过（含 proptest 与 doctest）；
+- Rust 测试：**185** 个通过（含 proptest 与 doctest）；
 - 前端测试：**51** 个通过（Vitest，8 个测试文件）；
 - 端到端测试：**12** 个通过（Playwright，生产构建，CI 的 web 任务）；
 - wasm 包：758 KB，gzip **290 KB**（§5.13 预算 800 KB）；

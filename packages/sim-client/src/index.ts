@@ -183,6 +183,16 @@ export interface SimWorkerApi {
   load(yaml: string): Promise<CompileResult>;
   /** Start a fresh simulation and probe every observable. */
   start(seed?: number): Promise<Frame>;
+  /**
+   * Start a fresh simulation with display-unit parameter overrides.
+   *
+   * Used for changes made before the first macro step, so stock initial
+   * expressions are recomputed under the selected parameters.
+   */
+  startWithParams(
+    params: Record<string, number>,
+    seed?: number,
+  ): Promise<Frame>;
   frame(): Promise<Frame>;
   /** Advance one macro step. */
   step(n: number): Promise<Frame>;

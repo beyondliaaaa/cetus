@@ -398,18 +398,30 @@ impl CompiledPlan {
     }
 }
 
+/// Compiles a model and keeps every diagnostic, including warnings.
+#[must_use]
+pub fn compile_model_with_warnings(model: &Model) -> (Option<CompiledPlan>, Diagnostics) {
+    compile_model_inner(model)
+}
+
 /// Compiles a model into a [`CompiledPlan`].
 ///
 /// # Errors
 /// Returns every diagnostic found; the plan is only produced when there are no
-/// errors.
-#[allow(clippy::too_many_lines)]
+/// errors. Warnings are discarded; use [`compile_model_with_warnings`] to keep
+/// them.
 pub fn compile_model(model: &Model) -> Result<CompiledPlan, Diagnostics> {
+    let (plan, diagnostics) = compile_model_inner(model);
+    plan.ok_or(diagnostics)
+}
+
+#[allow(clippy::too_many_lines)]
+fn compile_model_inner(model: &Model) -> (Option<CompiledPlan>, Diagnostics) {
     let mut diagnostics = Diagnostics::new();
     let registry = UnitRegistry::new();
 
     let Some(time) = compile_time(model, &registry, &mut diagnostics) else {
-        return Err(diagnostics);
+        return (None, diagnostics);
     };
 
     let (tables, table_signatures) = compile_tables(model, &registry, &mut diagnostics);
@@ -736,6 +748,7 @@ pub fn compile_model(model: &Model) -> Result<CompiledPlan, Diagnostics> {
         ) else {
             continue;
         };
+        warn_dt_reference(&typed, &format!("{path}.eq"), &mut diagnostics);
         // §5.1: a bare `0` is dimension-polymorphic, so a zero flow rate is
         // valid for any stock dimension.
         if typed.ty.dim() != Some(&expected) && !typed.zero_literal {
@@ -787,6 +800,7 @@ pub fn compile_model(model: &Model) -> Result<CompiledPlan, Diagnostics> {
         ) else {
             continue;
         };
+        warn_dt_reference(&typed, &format!("{path}.eq"), &mut diagnostics);
         if typed.ty.dim() != Some(unit.dim()) {
             diagnostics.push(Diagnostic::error(
                 "E1208",
@@ -836,32 +850,35 @@ pub fn compile_model(model: &Model) -> Result<CompiledPlan, Diagnostics> {
         .iter()
         .any(|diagnostic| diagnostic.severity == Severity::Error)
     {
-        return Err(diagnostics);
+        return (None, diagnostics);
     }
 
     let normalized = model.to_yaml().unwrap_or_default();
     let content_hash = *blake3::hash(normalized.as_bytes()).as_bytes();
 
-    Ok(CompiledPlan {
-        model_id: model.id.clone(),
-        model_version: model.version.clone(),
-        content_hash,
-        time,
-        layout: StateLayout {
-            slots,
-            stock_count,
-            parameter_count,
-            auxiliary_count,
-        },
-        parameters,
-        stocks,
-        auxiliaries,
-        flows,
-        observables,
-        invariants,
-        tables,
-        paradigms: model.paradigms.clone(),
-    })
+    (
+        Some(CompiledPlan {
+            model_id: model.id.clone(),
+            model_version: model.version.clone(),
+            content_hash,
+            time,
+            layout: StateLayout {
+                slots,
+                stock_count,
+                parameter_count,
+                auxiliary_count,
+            },
+            parameters,
+            stocks,
+            auxiliaries,
+            flows,
+            observables,
+            invariants,
+            tables,
+            paradigms: model.paradigms.clone(),
+        }),
+        diagnostics,
+    )
 }
 
 fn compile_time(
@@ -1209,6 +1226,7 @@ fn compile_auxiliaries(
     for (name, spec) in &model.auxiliaries {
         let path = format!("auxiliaries.{name}.eq");
         if let Some(expr) = parse_checked(&spec.eq, resolver, registry, &path, diagnostics) {
+            warn_dt_reference(&expr, &path, diagnostics);
             if let Some((_, declared)) = names.get(name)
                 && expr.ty.dim() != declared.dim()
             {
@@ -1357,6 +1375,35 @@ fn describe_dim(dim: Option<&Dim>) -> String {
     dim.map_or_else(|| "non-numeric".to_owned(), ToString::to_string)
 }
 
+fn references_dt(expr: &TypedExpr) -> bool {
+    match &expr.kind {
+        TypedKind::Dt => true,
+        TypedKind::Const(_) | TypedKind::Load(_) | TypedKind::Time => false,
+        TypedKind::Unary(_, inner) => references_dt(inner),
+        TypedKind::Binary(_, left, right) => references_dt(left) || references_dt(right),
+        TypedKind::If(condition, then_branch, else_branch) => {
+            references_dt(condition) || references_dt(then_branch) || references_dt(else_branch)
+        }
+        TypedKind::Call(_, args) => args.iter().any(references_dt),
+        TypedKind::Lookup(_, index) => references_dt(index),
+    }
+}
+
+fn warn_dt_reference(expr: &TypedExpr, path: &str, diagnostics: &mut Diagnostics) {
+    if references_dt(expr) {
+        diagnostics.push(
+            Diagnostic::warning(
+                "W2001",
+                "expression references `dt`; formulas that depend on the macro step are usually modeling errors",
+                Some(path),
+            )
+            .with_help(
+                "write the law in continuous time; `dt` is only for deliberately step-based rules",
+            ),
+        );
+    }
+}
+
 /// Formats diagnostics as Markdown.
 #[must_use]
 pub fn diagnostics_to_markdown(diagnostics: &[Diagnostic]) -> String {
@@ -1450,8 +1497,8 @@ auxiliaries:
   irradiance: { unit: "W/m^2", eq: "peak_irradiance * max(0, sin(2*pi*time/day_length))" }
   pv_power: { unit: W, eq: "efficiency * area * irradiance" }
 flows:
-  charging: { to: charge, unit: W, eq: "if charge < capacity then pv_power else 0" }
-  discharging: { from: charge, unit: W, eq: "if charge > 0 then load else 0" }
+  charging: { to: charge, unit: W, eq: "if charge < capacity then pv_power else min(pv_power, load)" }
+  discharging: { from: charge, unit: W, eq: "if charge > 0 then load else min(load, pv_power)" }
 observables:
   charge_pct: { unit: "1", eq: "charge / capacity", display: percent }
 invariants:
@@ -1501,7 +1548,7 @@ mod tests {
     #[test]
     fn rejects_a_flow_with_the_wrong_dimension() {
         let yaml = crate::SOLAR_YAML.replace(
-            "charging: { to: charge, unit: W, eq: \"if charge < capacity then pv_power else 0\" }",
+            "charging: { to: charge, unit: W, eq: \"if charge < capacity then pv_power else min(pv_power, load)\" }",
             "charging: { to: charge, unit: \"m\", eq: \"pv_power\" }",
         );
         let model = Model::from_yaml(&yaml).expect("parse");
@@ -1649,6 +1696,58 @@ observables:
         let diagnostics = compile_model(&model).expect_err("must fail");
         assert!(
             diagnostics.iter().any(|d| d.code == "E3101"),
+            "{diagnostics:?}"
+        );
+    }
+
+    #[test]
+    fn dt_in_equations_warns_w2001() {
+        let source = r#"
+schema: cetus.model/0.1
+id: test.dt-warning
+version: 1.0.0
+title: { zh-CN: "dt warning" }
+tier: empirical
+paradigms: [sd]
+time: { unit: h, dt: 0.1, horizon: 10, integrator: euler }
+parameters:
+  rate: { unit: "1/h", value: 1, source: "param:TODO-expert" }
+stocks:
+  x: { unit: "1", initial: "1" }
+auxiliaries:
+  step_fraction: { unit: "1", eq: "dt / 1[h]" }
+flows:
+  growth: { to: x, unit: "1/h", eq: "rate * x * (dt / 1[h])" }
+observables:
+  x_scaled: { unit: "1", eq: "x * (dt / 1[h])" }
+"#;
+        let model = Model::from_yaml(source).expect("parse");
+        let (plan, diagnostics) = compile_model_with_warnings(&model);
+        assert!(plan.is_some(), "{diagnostics:?}");
+        let paths: Vec<&str> = diagnostics
+            .iter()
+            .filter(|diagnostic| diagnostic.code == "W2001")
+            .filter_map(|diagnostic| diagnostic.path.as_deref())
+            .collect();
+        assert_eq!(
+            paths,
+            vec![
+                "auxiliaries.step_fraction.eq",
+                "flows.growth.eq",
+                "observables.x_scaled.eq"
+            ],
+            "{diagnostics:?}"
+        );
+    }
+
+    #[test]
+    fn solar_model_does_not_reference_dt() {
+        let (plan, diagnostics) = compile_model_with_warnings(&solar_model());
+        assert!(plan.is_some(), "{diagnostics:?}");
+        assert!(
+            !diagnostics
+                .iter()
+                .any(|diagnostic| diagnostic.code == "W2001"),
             "{diagnostics:?}"
         );
     }

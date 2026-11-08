@@ -182,6 +182,17 @@ fn check_tasks(
                 ));
             }
         }
+        if let Some(setup) = &task.setup {
+            for name in setup.initial.keys() {
+                if !truth_model.stocks.contains_key(name) {
+                    diagnostics.push(Diagnostic::error(
+                        "E5205",
+                        format!("task `{}` initial value `{name}` is not a stock", task.id),
+                        Some(&format!("{prefix}.{}.setup.initial.{name}", task.id)),
+                    ));
+                }
+            }
+        }
         if let Some(Check::ParamWithin { rel_tol }) = &task.check {
             check_tolerance(
                 *rel_tol,

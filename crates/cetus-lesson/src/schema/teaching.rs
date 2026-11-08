@@ -122,8 +122,8 @@ pub struct ControlRange {
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
 pub struct InitialRange {
-    /// Inclusive `[low, high]` range.
-    pub range: [f64; 2],
+    /// Inclusive `[low, high]` range of expressions, evaluated under the chosen settings.
+    pub range: [String; 2],
 }
 
 /// Maximum observation duration.

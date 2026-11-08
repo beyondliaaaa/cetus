@@ -14,7 +14,7 @@ use crate::report::{CheckResult, Report};
 
 const LHS_SAMPLES: usize = 64;
 const SWEEP_SEEDS: [u64; 4] = [1, 2, 3, 4];
-const CONVERGENCE_SAMPLES: usize = 32;
+const CONVERGENCE_SAMPLES: usize = 128;
 const CONVERGENCE_MAX_NRMSE: f64 = 0.01;
 const CONVERGENCE_DT_DIVISORS: [f64; 3] = [1.0, 2.0, 4.0];
 const CLAMP_WARNING_PERCENT: f64 = 50.0;

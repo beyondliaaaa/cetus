@@ -1,7 +1,9 @@
 //! V1 static check tests.
 
 use cetus_compile::Severity;
-use cetus_lesson::{Check, Hole, Lesson, MisconceptionSourceKind, check_static};
+use cetus_lesson::{
+    Check, Hole, InitialRange, Lesson, MisconceptionSourceKind, TeachingTask, check_static,
+};
 use cetus_model::Model;
 
 fn solar() -> Model {
@@ -284,4 +286,85 @@ fn given_unknown_causal_from_when_checked_statically_then_e2101_is_reported() {
     assert!(diagnostics.iter().any(|diagnostic| {
         diagnostic.code == "E2101" && diagnostic.path.as_deref() == Some("layers.L1.holes.c1.from")
     }));
+}
+
+#[test]
+fn given_task_initial_on_observable_when_checked_then_e5205_is_reported() {
+    let mut lesson = lesson_fixture("positive.lesson.yaml");
+    let t4 = lesson
+        .tasks
+        .iter_mut()
+        .find(|task| task.id == "t4")
+        .expect("t4");
+    let setup = t4.setup.as_mut().expect("t4 setup");
+    setup.initial.clear();
+    setup
+        .initial
+        .insert("charge_pct".to_owned(), "0.3".to_owned());
+    let diagnostics = check_static(&lesson, &solar());
+    assert!(
+        diagnostics.iter().any(|diagnostic| {
+            diagnostic.code == "E5205"
+                && diagnostic.path.as_deref() == Some("tasks.t4.setup.initial.charge_pct")
+        }),
+        "{diagnostics:?}"
+    );
+}
+
+#[test]
+fn given_setup_space_initial_on_observable_when_checked_then_e5205_is_reported() {
+    let mut lesson = lesson_fixture("positive.lesson.yaml");
+    let task = lesson
+        .teaching
+        .iter_mut()
+        .find(|task| task.id() == "teach-natives-1")
+        .expect("teach-natives-1");
+    let TeachingTask::Native { setup_space, .. } = task else {
+        panic!("teach-natives-1 must be a native task");
+    };
+    setup_space.initial.clear();
+    setup_space.initial.insert(
+        "charge_pct".to_owned(),
+        InitialRange {
+            range: ["0.2".to_owned(), "1.0".to_owned()],
+        },
+    );
+    let diagnostics = check_static(&lesson, &solar());
+    assert!(
+        diagnostics.iter().any(|diagnostic| {
+            diagnostic.code == "E5205"
+                && diagnostic.path.as_deref()
+                    == Some("teaching.teach-natives-1.setup_space.initial.charge_pct")
+        }),
+        "{diagnostics:?}"
+    );
+}
+
+#[test]
+fn given_setup_space_initial_with_wrong_dimension_when_checked_then_e1201_is_reported() {
+    let mut lesson = lesson_fixture("positive.lesson.yaml");
+    let task = lesson
+        .teaching
+        .iter_mut()
+        .find(|task| task.id() == "teach-natives-1")
+        .expect("teach-natives-1");
+    let TeachingTask::Native { setup_space, .. } = task else {
+        panic!("teach-natives-1 must be a native task");
+    };
+    setup_space.initial.clear();
+    setup_space.initial.insert(
+        "charge".to_owned(),
+        InitialRange {
+            range: ["0.2 * area".to_owned(), "capacity".to_owned()],
+        },
+    );
+    let diagnostics = check_static(&lesson, &solar());
+    assert!(
+        diagnostics.iter().any(|diagnostic| {
+            diagnostic.code == "E1201"
+                && diagnostic.path.as_deref()
+                    == Some("teaching.teach-natives-1.setup_space.initial.charge.range[0]")
+        }),
+        "{diagnostics:?}"
+    );
 }

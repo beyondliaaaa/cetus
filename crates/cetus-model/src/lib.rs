@@ -479,8 +479,8 @@ auxiliaries:
   irradiance: { unit: "W/m^2", eq: "peak_irradiance * max(0, sin(2*pi*time/day_length))" }
   pv_power: { unit: W, eq: "efficiency * area * irradiance" }
 flows:
-  charging: { to: charge, unit: W, eq: "if charge < capacity then pv_power else 0" }
-  discharging: { from: charge, unit: W, eq: "if charge > 0 then load else 0" }
+  charging: { to: charge, unit: W, eq: "if charge < capacity then pv_power else min(pv_power, load)" }
+  discharging: { from: charge, unit: W, eq: "if charge > 0 then load else min(load, pv_power)" }
 observables:
   charge_pct: { unit: "1", eq: "charge / capacity", display: percent }
 invariants:
